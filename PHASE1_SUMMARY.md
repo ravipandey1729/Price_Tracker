@@ -11,6 +11,7 @@ Phase 1 is the **foundation** of the Price Tracker project. We've built all the 
 ### **Step 1: Project Folder Structure** ✅
 
 **What we created:**
+
 ```
 Price Tracker/
 ├── scrapers/      # Will contain web scraping modules
@@ -24,6 +25,7 @@ Price Tracker/
 ```
 
 **Why this matters:**
+
 - **Organization:** Each component has its own folder, making code easy to find
 - **Modularity:** Changes to one module don't affect others
 - **Scalability:** Easy to add new features without cluttering existing code
@@ -34,6 +36,7 @@ Price Tracker/
 ### **Step 2: requirements.txt** ✅
 
 **What it contains:**
+
 ```
 sqlalchemy>=2.0.0    # Database ORM
 requests>=2.31.0     # HTTP library for web scraping
@@ -44,11 +47,13 @@ pytest              # Testing framework
 ```
 
 **Why this matters:**
+
 - **Reproducibility:** Anyone can install exact same dependencies with `pip install -r requirements.txt`
 - **Version Control:** Pins specific versions to avoid "it works on my machine" issues
 - **Documentation:** Shows all libraries the project uses
 
 **How it works:**
+
 - Run: `pip install -r requirements.txt`
 - pip reads the file and installs each library
 - `>=` means "this version or newer"
@@ -61,6 +66,7 @@ pytest              # Testing framework
 Tells Git which files to **never** commit to version control.
 
 **Key exclusions:**
+
 ```
 .env                # Contains passwords - NEVER commit!
 *.db                # Database files (should be backed up separately)
@@ -70,6 +76,7 @@ venv/               # Virtual environment folder
 ```
 
 **Why this matters:**
+
 - **Security:** Prevents accidentally committing passwords/API keys to GitHub
 - **Cleanliness:** Keeps repository focused on code, not generated files
 - **Performance:** Smaller repo size, faster clones
@@ -82,13 +89,14 @@ Without `.gitignore`, you might commit `.env` with your email password, then pus
 ### **Step 4: config.yaml** ✅
 
 **What it contains:**
+
 ```yaml
 database:
   path: "price_tracker.db"
   data_retention_days: 90
 
 scraping:
-  min_delay: 2  # seconds between requests
+  min_delay: 2 # seconds between requests
   max_retries: 3
 
 sites:
@@ -99,11 +107,13 @@ sites:
 ```
 
 **Why YAML instead of Python code:**
+
 - **Non-programmers can edit:** Product manager can update URLs without touching code
 - **Different environments:** Easy to have dev.yaml, prod.yaml with different settings
 - **No code changes needed:** Modify thresholds, add new sites, change schedules without redeploying
 
 **How it works:**
+
 1. Python loads YAML with `pyyaml`
 2. YAML becomes a Python dictionary
 3. Access values like: `config['scraping']['min_delay']`
@@ -116,10 +126,12 @@ sites:
 You can't put passwords in `config.yaml` because that file is committed to Git!
 
 **The Solution:**
+
 - `.env`: Contains actual secrets (NOT in Git, in `.gitignore`)
 - `.env.example`: Template showing what secrets are needed (safe to commit)
 
 **Contents:**
+
 ```
 EMAIL_USERNAME=your-email@gmail.com
 EMAIL_PASSWORD=your-app-password
@@ -127,11 +139,13 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
 **How it works:**
+
 1. `python-dotenv` loads `.env` file
 2. Values become environment variables
 3. Access in Python: `os.getenv('EMAIL_USERNAME')`
 
 **Best practice:**
+
 - When a team member clones the repo, they copy `.env.example` to `.env` and fill in their credentials
 - Each developer has their own `.env` (never shared)
 
@@ -143,12 +157,14 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 Defines database structure using **SQLAlchemy ORM** (Object-Relational Mapping).
 
 **Without ORM (raw SQL):**
+
 ```python
-cursor.execute("INSERT INTO products (product_id, name) VALUES (?, ?)", 
+cursor.execute("INSERT INTO products (product_id, name) VALUES (?, ?)",
                ("prod_001", "Sony Headphones"))
 ```
 
 **With ORM (SQLAlchemy):**
+
 ```python
 product = Product(product_id="prod_001", name="Sony Headphones")
 session.add(product)
@@ -158,21 +174,25 @@ session.commit()
 **Models we created:**
 
 1. **Product** - Master list of products being tracked
+
    ```python
    product_id, name, sku, category, created_at, updated_at
    ```
 
 2. **Price** - Historical price data (time-series)
+
    ```python
    product_id, price, currency, source_site, scraped_at, in_stock
    ```
 
 3. **ScraperRun** - Metadata about scraping jobs
+
    ```python
    site_name, status, products_succeeded, errors, start_time, end_time
    ```
 
 4. **AlertSent** - Tracks sent alerts (prevents duplicates)
+
    ```python
    product_id, alert_type, old_price, new_price, sent_at
    ```
@@ -183,12 +203,14 @@ session.commit()
    ```
 
 **Why this matters:**
+
 - **Type Safety:** Python checks types at code time, not runtime errors
 - **Relationships:** Easy to query "all prices for this product"
 - **Automatic Schema:** SQLAlchemy creates tables from models
 - **Database Agnostic:** Same code works with SQLite, PostgreSQL, MySQL
 
 **Example relationship:**
+
 ```python
 product = session.query(Product).first()
 print(product.prices)  # Automatically fetches all related prices!
@@ -204,16 +226,19 @@ Manages database connections and sessions.
 **Key Concepts:**
 
 **Engine:**
+
 - The "connector" to the database file
 - Created once, reused for all operations
 - Configuration: timeouts, connection pooling, etc.
 
 **Session:**
+
 - A "transaction" or "unit of work"
 - Groups multiple operations (add, update, delete)
 - Automatically commits on success, rolls back on error
 
 **Context Manager Pattern:**
+
 ```python
 with get_session() as session:
     product = Product(name="Example")
@@ -223,11 +248,13 @@ with get_session() as session:
 ```
 
 **Why context managers:**
+
 - **Automatic cleanup:** Session closes even if error occurs
 - **No forgotten closes:** Can't forget to call `session.close()`
 - **Rollback on error:** If exception happens, changes are rolled back
 
 **SQLite specific settings:**
+
 ```python
 "check_same_thread": False  # Allow multi-threaded access
 "timeout": 30              # Wait 30sec if database is locked
@@ -242,6 +269,7 @@ PRAGMA journal_mode=WAL    # Write-Ahead Logging (better concurrency)
 Sets up centralized logging with file rotation and console output.
 
 **Log Levels:**
+
 - **DEBUG:** Detailed diagnostic info (only in development)
 - **INFO:** General informational messages
 - **WARNING:** Something unexpected but not critical
@@ -251,6 +279,7 @@ Sets up centralized logging with file rotation and console output.
 **Features:**
 
 1. **Rotating File Handlers**
+
    ```
    logs/price_tracker.log      (10 MB max, keeps 5 old files)
    logs/scraper_errors.log     (scraper-specific errors)
@@ -272,18 +301,21 @@ Sets up centralized logging with file rotation and console output.
 **Why logging matters:**
 
 **Debugging:**
+
 ```
 Without logs: "The scraper failed yesterday but I don't know why"
 With logs: "Looking at logs, Amazon returned 503 at 2AM, retried 3 times, then gave up"
 ```
 
 **Monitoring:**
+
 ```
 Grep error count: cat logs/scraper_errors.log | grep ERROR | wc -l
 Answer: "47 errors today, unusual, let's investigate"
 ```
 
 **Auditing:**
+
 ```
 "When was the last alert sent for Product X?"
 Check logs/alerts.log: "2026-03-08 14:32:12 | Alert sent: Price dropped 15%"
@@ -299,6 +331,7 @@ Sets up automated testing framework.
 **Test Types:**
 
 1. **Unit Tests** - Test individual functions
+
    ```python
    def test_price_parsing():
        assert parse_price("$19.99") == 19.99
@@ -315,6 +348,7 @@ Sets up automated testing framework.
 
 **Fixtures (conftest.py):**
 Reusable test components:
+
 ```python
 @pytest.fixture
 def db_session():
@@ -326,6 +360,7 @@ def db_session():
 
 **Coverage:**
 Shows which lines of code are tested:
+
 ```bash
 pytest --cov=. --cov-report=html
 # Opens htmlcov/index.html showing 82% coverage
@@ -334,18 +369,21 @@ pytest --cov=. --cov-report=html
 **Why testing matters:**
 
 **Catch bugs early:**
+
 ```
 Without tests: Deploy to production → users find bugs → hotfix panic
 With tests: Write test → test fails → fix bug → test passes → deploy confidently
 ```
 
 **Refactoring safety:**
+
 ```
 "I want to rewrite the price parser for better performance"
 Run tests → all pass → safe to deploy
 ```
 
 **Documentation:**
+
 ```
 Tests show how code should be used:
 def test_add_product(db_session):
@@ -520,18 +558,22 @@ Now that foundation is ready, Phase 2 will add:
 ## 📚 Learning Resources
 
 **SQLAlchemy ORM:**
+
 - Tutorial: https://docs.sqlalchemy.org/en/20/tutorial/
 - Relationships: https://docs.sqlalchemy.org/en/20/orm/basic_relationships.html
 
 **Pytest:**
+
 - Getting Started: https://docs.pytest.org/en/stable/getting-started.html
 - Fixtures: https://docs.pytest.org/en/stable/fixture.html
 
 **Python Logging:**
+
 - HOWTO: https://docs.python.org/3/howto/logging.html
 - Cookbook: https://docs.python.org/3/howto/logging-cookbook.html
 
 **Environment Variables:**
+
 - python-dotenv: https://pypi.org/project/python-dotenv/
 
 ---

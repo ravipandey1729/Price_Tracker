@@ -7,10 +7,11 @@ Usage:
     python main.py init          # Initialize database
     python main.py test-db       # Test database connection
     python main.py test-logging  # Test logging configuration
+    python main.py scrape-now    # Run all scrapers once
+    python main.py scrape-site <name>  # Run specific site scraper
     
-Future commands (Phase 2+):
+Future commands (Phase 3+):
     python main.py start         # Start scheduler
-    python main.py scrape-now    # Run one-time scrape
     python main.py list-jobs     # List scheduled jobs
 """
 
@@ -26,9 +27,13 @@ from database.connection import (
     test_connection, 
     get_database_path,
     get_table_row_counts,
-    database_exists
+    database_exists,
+    get_session
 )
 from utils.logging_config import get_logger, log_section_separator
+from utils.config import load_config
+from scrapers.orchestrator import ScraperOrchestrator
+from scrapers.scraper_factory import get_available_sites
 
 
 # Setup logger
@@ -98,15 +103,112 @@ def cmd_test_logging(args):
 
 def cmd_version(args):
     """Show version information"""
-    print("Price Tracker v0.1.0 (Phase 1 Complete)")
-    print("Foundation: Database, Logging, Configuration")
+    print("Price Tracker v0.2.0 (Phase 2: Web Scraping)")
+    print("Features: Database, Logging, Configuration, Web Scraping")
+
+
+def cmd_scrape_now(args):
+    """Run all configured scrapers once"""
+    log_section_separator(logger, "Running All Scrapers")
+    
+    # Check database exists
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        # Load configuration
+        config = load_config()
+        logger.info(f"Loaded configuration from config.yaml")
+        
+        # Run scrapers
+        with get_session() as session:
+            orchestrator = ScraperOrchestrator(session, config, max_workers=args.workers)
+            results = orchestrator.run_all_scrapers()
+        
+        # Display results
+        logger.info("\n" + "=" * 70)
+        logger.info("SCRAPING COMPLETE")
+        logger.info("=" * 70)
+        logger.info(f"Total products: {results['total_products']}")
+        logger.info(f"Successful: {results['successful']}")
+        logger.info(f"Failed: {results['failed']}")
+        logger.info(f"Duration: {results['duration']:.2f} seconds")
+        logger.info("=" * 70)
+        
+        if results['failed'] > 0:
+            logger.warning("\nSome products failed to scrape. Check scraper_errors.log for details.")
+        
+        logger.info("\n✓ Scraping completed successfully")
+    
+    except Exception as e:
+        logger.error(f"✗ Scraping failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_scrape_site(args):
+    """Run scraper for a specific site"""
+    site_name = args.site
+    
+    log_section_separator(logger, f"Scraping Site: {site_name}")
+    
+    # Check if site is supported
+    available_sites = get_available_sites()
+    if site_name not in available_sites:
+        logger.error(f"Site '{site_name}' is not supported.")
+        logger.info(f"Available sites: {', '.join(available_sites)}")
+        return
+    
+    # Check database exists
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        # Load configuration
+        config = load_config()
+        
+        # Run scraper
+        with get_session() as session:
+            orchestrator = ScraperOrchestrator(session, config, max_workers=1)
+            results = orchestrator.run_site_scraper(site_name)
+        
+        # Display results
+        logger.info("\n" + "=" * 70)
+        logger.info(f"SCRAPING COMPLETE: {site_name}")
+        logger.info("=" * 70)
+        logger.info(f"Total products: {results['total_products']}")
+        logger.info(f"Successful: {results['successful']}")
+        logger.info(f"Failed: {results['failed']}")
+        logger.info(f"Duration: {results['duration']:.2f} seconds")
+        logger.info("=" * 70)
+        
+        logger.info("\n✓ Site scraping completed")
+    
+    except Exception as e:
+        logger.error(f"✗ Site scraping failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_list_sites(args):
+    """List all supported sites"""
+    log_section_separator(logger, "Supported Sites")
+    
+    sites = get_available_sites()
+    
+    logger.info(f"Total supported sites: {len(sites)}\n")
+    
+    for i, site in enumerate(sites, 1):
+        logger.info(f"  {i}. {site}")
+    
+    logger.info("\nUse 'python main.py scrape-site <name>' to scrape a specific site")
 
 
 def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(
         description="Price Tracker - Monitor competitor prices automatically",
-        epilog="Phase 1 commands: init, test-db, test-logging"
+        epilog="Phase 1-2 commands: init, test-db, test-logging, scrape-now, scrape-site"
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -123,6 +225,20 @@ def main():
     # Test logging command
     parser_test_log = subparsers.add_parser('test-logging', help='Test logging system')
     parser_test_log.set_defaults(func=cmd_test_logging)
+    
+    # Scrape all command
+    parser_scrape_now = subparsers.add_parser('scrape-now', help='Run all scrapers once')
+    parser_scrape_now.add_argument('--workers', type=int, default=3, help='Number of parallel workers (default: 3)')
+    parser_scrape_now.set_defaults(func=cmd_scrape_now)
+    
+    # Scrape site command
+    parser_scrape_site = subparsers.add_parser('scrape-site', help='Run scraper for specific site')
+    parser_scrape_site.add_argument('site', help='Site name (e.g., Amazon, eBay)')
+    parser_scrape_site.set_defaults(func=cmd_scrape_site)
+    
+    # List sites command
+    parser_list_sites = subparsers.add_parser('list-sites', help='List all supported sites')
+    parser_list_sites.set_defaults(func=cmd_list_sites)
     
     # Version command
     parser_version = subparsers.add_parser('version', help='Show version')
