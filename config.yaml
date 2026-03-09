@@ -1,0 +1,199 @@
+# Price Tracker Configuration File
+# Edit this file to customize scraping behavior, alert thresholds, and scheduling
+
+# ============================================================================
+# DATABASE SETTINGS
+# ============================================================================
+database:
+  path: "price_tracker.db"  # SQLite database file location
+  backup_enabled: true
+  backup_frequency_days: 7
+  data_retention_days: 90  # Delete price records older than this
+
+# ============================================================================
+# SCRAPING SETTINGS
+# ============================================================================
+scraping:
+  # Request delays (in seconds)
+  min_delay: 2  # Minimum delay between requests to same site
+  max_delay: 5  # Maximum delay (randomly chosen between min and max)
+  
+  # Retry settings
+  max_retries: 3
+  retry_backoff_factor: 2  # Exponential backoff: 2, 4, 8 seconds
+  
+  # Request timeout
+  timeout_seconds: 30
+  
+  # User agent rotation
+  rotate_user_agent: true
+  
+  # Store failed scrapes for debugging
+  save_failed_html: true
+
+# ============================================================================
+# COMPETITOR SITES
+# ============================================================================
+# Add one entry per competitor site you want to track
+# Each site needs CSS selectors to find product name, price, etc.
+
+sites:
+  # Example: Amazon
+  - name: "Amazon"
+    enabled: true
+    base_url: "https://www.amazon.com"
+    selectors:
+      price: "#priceblock_ourprice, .a-price-whole"
+      product_name: "#productTitle"
+      availability: "#availability span"
+      currency: ".a-price-symbol"
+    # Fallback selectors if primary ones fail
+    fallback_selectors:
+      price: "span.a-offscreen"
+  
+  # Example: eBay
+  - name: "eBay"
+    enabled: true
+    base_url: "https://www.ebay.com"
+    selectors:
+      price: ".x-price-primary"
+      product_name: ".x-item-title__mainTitle"
+      availability: ".d-quantity__availability"
+      currency: ".x-price-currency"
+  
+  # Example: Walmart
+  - name: "Walmart"
+    enabled: false  # Set to true when ready to use
+    base_url: "https://www.walmart.com"
+    selectors:
+      price: "[itemprop='price']"
+      product_name: "h1[itemprop='name']"
+      availability: ".prod-ProductOffer-oosMsg"
+
+# ============================================================================
+# PRODUCTS TO TRACK
+# ============================================================================
+# List all products you want to monitor
+# Each product should have URLs for each competitor site
+
+products:
+  - id: "prod_001"
+    name: "Example Product - Sony WH-1000XM5"
+    category: "Electronics"
+    sku: "WH1000XM5"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B09XS7JWHH"
+      eBay: "https://www.ebay.com/itm/example"
+    # Alert thresholds for this product
+    alert_threshold:
+      percentage_drop: 10  # Alert if price drops by 10% or more
+      target_price: 299.99  # Alert if price drops below this amount
+    
+  # Add more products here
+  # - id: "prod_002"
+  #   name: "Another Product"
+  #   ...
+
+# ============================================================================
+# SCHEDULING
+# ============================================================================
+scheduling:
+  # Scraping frequency (how often to check prices)
+  scrape_interval_hours: 4  # Check every 4 hours
+  
+  # Weekly report schedule (cron-style)
+  weekly_report:
+    enabled: true
+    day_of_week: "sun"  # mon, tue, wed, thu, fri, sat, sun
+    hour: 20  # 24-hour format (20 = 8 PM)
+    minute: 0
+  
+  # Data cleanup schedule
+  cleanup_old_data:
+    enabled: true
+    day_of_week: "mon"
+    hour: 2
+    minute: 0
+
+# ============================================================================
+# ALERTING
+# ============================================================================
+alerts:
+  # Email settings (credentials in .env file)
+  email:
+    enabled: true
+    recipients:
+      - "your-email@example.com"
+    # Add multiple recipients for different alert types
+    # high_priority: ["urgent@example.com"]
+    # low_priority: ["digest@example.com"]
+    
+    # Alert cooldown (prevent spam)
+    cooldown_hours: 6  # Don't send duplicate alert for same product within 6 hours
+    
+    # Email server settings (non-sensitive parts)
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    use_tls: true
+    from_name: "Price Tracker Bot"
+  
+  # Slack settings (webhook URL in .env file)
+  slack:
+    enabled: false  # Set to true when configured
+    channel: "#price-alerts"
+    username: "Price Tracker"
+    icon_emoji: ":money_with_wings:"
+    
+    # Alert formatting
+    mention_on_big_drop: true  # @channel for drops >20%
+    big_drop_threshold: 20
+  
+  # Alert conditions (global defaults, can override per product)
+  conditions:
+    min_percentage_drop: 5  # Only alert on drops of 5% or more
+    alert_on_all_time_low: true  # Alert when price is lowest ever seen
+    alert_on_target_price: true  # Alert when price drops below target
+
+# ============================================================================
+# REPORTING
+# ============================================================================
+reporting:
+  # Output folder for generated reports
+  output_folder: "reports/output"
+  
+  # Chart settings
+  charts:
+    dpi: 100
+    figure_size: [10, 6]  # Width, height in inches
+    style: "seaborn-v0_8-darkgrid"
+    color_scheme: "tab10"
+  
+  # Report content
+  include_charts: true
+  include_statistics: true
+  include_competitor_comparison: true
+  chart_days_history: 7  # Show last 7 days of data in charts
+  
+  # Export formats
+  export_formats:
+    - "html"
+    # - "pdf"  # Uncomment to also generate PDFs
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  console_output: true
+  file_output: true
+  
+  # Log file rotation
+  max_file_size_mb: 10
+  backup_count: 5  # Keep 5 old log files
+  
+  # Separate log files
+  files:
+    main: "logs/price_tracker.log"
+    scraper_errors: "logs/scraper_errors.log"
+    alerts: "logs/alerts.log"
+    scheduler: "logs/scheduler.log"

@@ -1,0 +1,40 @@
+# Core Web Scraping
+requests>=2.31.0          # HTTP library for making web requests
+beautifulsoup4>=4.12.0    # HTML parsing library
+lxml>=4.9.0               # Fast XML/HTML parser
+fake-useragent>=1.4.0     # Rotate user agents to avoid detection
+
+# Optional: For JavaScript-heavy sites
+# playwright>=1.40.0      # Browser automation (uncomment if needed)
+
+# Database
+sqlalchemy>=2.0.0         # SQL toolkit and ORM
+alembic>=1.13.0           # Database migration tool
+
+# Configuration Management
+pyyaml>=6.0               # Parse YAML config files
+python-dotenv>=1.0.0      # Load environment variables from .env
+pydantic>=2.5.0           # Data validation using type hints
+pydantic-settings>=2.1.0  # Settings management with Pydantic
+
+# Scheduling
+apscheduler>=3.10.0       # Advanced Python Scheduler
+
+# Alerting
+slack-sdk>=3.26.0         # Official Slack SDK for alerts
+
+# Reporting
+jinja2>=3.1.2             # Template engine for HTML reports
+matplotlib>=3.8.0         # Create charts and graphs
+pillow>=10.1.0            # Image processing (for chart optimization)
+
+# Testing
+pytest>=7.4.0             # Testing framework
+pytest-cov>=4.1.0         # Code coverage plugin
+pytest-mock>=3.12.0       # Mocking utilities
+responses>=0.24.0         # Mock HTTP requests for testing
+
+# Development Tools (optional)
+black>=23.12.0            # Code formatter
+flake8>=7.0.0             # Linter
+mypy>=1.8.0               # Type checker
