@@ -4,9 +4,9 @@ A Python-based price tracking system that monitors competitor prices from multip
 
 ## 📋 Project Status
 
-**✅ Phase 1: Foundation Complete** *(Database, Configuration, Logging)*  
-**✅ Phase 2: Web Scraping Complete** *(Amazon, eBay scrapers, parallel execution)*  
-**⏳ Phase 3: Job Scheduling** *(Coming next)*  
+**✅ Phase 1: Foundation Complete** _(Database, Configuration, Logging)_  
+**✅ Phase 2: Web Scraping Complete** _(Amazon, eBay scrapers, parallel execution)_  
+**⏳ Phase 3: Job Scheduling** _(Coming next)_
 
 ### What's Been Built
 
@@ -204,9 +204,9 @@ python main.py scrape-site Amazon
 sqlite3 price_tracker.db
 
 # Query latest prices
-sqlite> SELECT product_id, price, currency, source_site, scraped_at 
-        FROM prices 
-        ORDER BY scraped_at DESC 
+sqlite> SELECT product_id, price, currency, source_site, scraped_at
+        FROM prices
+        ORDER BY scraped_at DESC
         LIMIT 5;
 
 # View scraper runs
@@ -268,30 +268,30 @@ pytest tests/ --cov=. --cov-report=html
 
 ### Phase 1 Commands
 
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `init`                | Initialize database                      |
-| `init --force`        | Recreate database (deletes existing data)|
-| `test-db`             | Test database connection                 |
-| `test-logging`        | Test logging system                      |
-| `version`             | Show version information                 |
+| Command        | Description                               |
+| -------------- | ----------------------------------------- |
+| `init`         | Initialize database                       |
+| `init --force` | Recreate database (deletes existing data) |
+| `test-db`      | Test database connection                  |
+| `test-logging` | Test logging system                       |
+| `version`      | Show version information                  |
 
 ### Phase 2 Commands
 
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `scrape-now`          | Run all scrapers once                    |
-| `scrape-now --workers N` | Use N parallel workers (default: 3)   |
-| `scrape-site <name>`  | Run scraper for specific site            |
-| `list-sites`          | List all supported sites                 |
+| Command                  | Description                         |
+| ------------------------ | ----------------------------------- |
+| `scrape-now`             | Run all scrapers once               |
+| `scrape-now --workers N` | Use N parallel workers (default: 3) |
+| `scrape-site <name>`     | Run scraper for specific site       |
+| `list-sites`             | List all supported sites            |
 
 ### Coming in Phase 3
 
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `start`               | Start scheduler daemon                   |
-| `stop`                | Stop scheduler                           |
-| `list-jobs`           | Show scheduled jobs                      |
+| Command     | Description            |
+| ----------- | ---------------------- |
+| `start`     | Start scheduler daemon |
+| `stop`      | Stop scheduler         |
+| `list-jobs` | Show scheduled jobs    |
 
 ---
 

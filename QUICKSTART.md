@@ -3,24 +3,30 @@
 ## 🎯 What You Can Do Now
 
 ### 1️⃣ List Supported Sites
+
 ```bash
 python main.py list-sites
 ```
+
 **Shows:** Amazon, eBay (+ any you add)
 
 ---
 
 ### 2️⃣ Scrape All Products
+
 ```bash
 python main.py scrape-now
 ```
+
 **What happens:**
+
 - Reads products from `config.yaml`
 - Scrapes each site in parallel (3 workers)
 - Stores prices in database
 - Shows success/failure summary
 
 **Options:**
+
 ```bash
 python main.py scrape-now --workers 5  # Use 5 parallel workers
 ```
@@ -28,16 +34,20 @@ python main.py scrape-now --workers 5  # Use 5 parallel workers
 ---
 
 ### 3️⃣ Scrape One Site
+
 ```bash
 python main.py scrape-site Amazon
 ```
+
 **What happens:**
+
 - Only scrapes Amazon products
 - Useful for testing or debugging
 
 ---
 
 ### 4️⃣ View Results
+
 ```bash
 sqlite3 price_tracker.db
 
@@ -45,8 +55,8 @@ sqlite3 price_tracker.db
 sqlite> SELECT * FROM prices ORDER BY scraped_at DESC LIMIT 5;
 
 # Price history for one product
-sqlite> SELECT price, source_site, scraped_at 
-        FROM prices 
+sqlite> SELECT price, source_site, scraped_at
+        FROM prices
         WHERE product_id = 'prod_001'
         ORDER BY scraped_at DESC;
 
@@ -71,7 +81,7 @@ products:
     urls:
       Amazon: "https://www.amazon.com/dp/B0BZ1TY57M"
       eBay: "https://www.ebay.com/itm/..."
-  
+
   - id: prod_002
     name: "iPhone 15 Pro"
     sku: "IPHONE-15-PRO"
@@ -122,7 +132,7 @@ Orchestrator:
   - Saves to database:
     * Price records
     * ScraperRun records
-  
+
         ↓
 
 You see results:
@@ -136,6 +146,7 @@ You see results:
 ### Scraping Failed?
 
 **Check logs:**
+
 ```bash
 # Detailed error logs
 cat logs/scraper_errors.log
@@ -145,6 +156,7 @@ ls logs/failed_scrapes/
 ```
 
 **Common issues:**
+
 - **Timeout:** Site too slow → Increase timeout in scraper
 - **Parse error:** Site changed HTML → Update CSS selectors
 - **Rate limit:** Too fast → Increase min_delay in scraper
@@ -169,6 +181,7 @@ self.selectors = {
 ## 📊 Database Schema
 
 ### prices table
+
 ```sql
 product_id      TEXT      -- Foreign key to products
 price           REAL      -- Decimal price (19.99)
@@ -181,6 +194,7 @@ scraped_at      DATETIME  -- Timestamp
 ```
 
 ### scraper_runs table
+
 ```sql
 site_name           TEXT      -- Site scraped
 status              TEXT      -- SUCCESS/FAILED/PARTIAL_SUCCESS
@@ -216,6 +230,7 @@ python main.py stop
 ```
 
 **Implementation:**
+
 - APScheduler with IntervalTrigger (4 hours)
 - Windows service or background daemon
 - Logging to scheduler.log
@@ -225,14 +240,14 @@ python main.py stop
 
 ## 📚 Files to Read
 
-| File                      | What's Inside                                         |
-| ------------------------- | ----------------------------------------------------- |
-| `PHASE2_SUMMARY.md`       | Complete architecture details (20+ pages)             |
-| `README.md`               | Quick start guide                                     |
-| `config.yaml`             | Your product URLs + settings                          |
-| `scrapers/base_scraper.py`| HTTP logic, retries, rate limiting                    |
-| `scrapers/orchestrator.py`| Parallel execution coordinator                        |
-| `logs/scraper_errors.log` | Scraping errors for debugging                         |
+| File                       | What's Inside                             |
+| -------------------------- | ----------------------------------------- |
+| `PHASE2_SUMMARY.md`        | Complete architecture details (20+ pages) |
+| `README.md`                | Quick start guide                         |
+| `config.yaml`              | Your product URLs + settings              |
+| `scrapers/base_scraper.py` | HTTP logic, retries, rate limiting        |
+| `scrapers/orchestrator.py` | Parallel execution coordinator            |
+| `logs/scraper_errors.log`  | Scraping errors for debugging             |
 
 ---
 
