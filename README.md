@@ -1,12 +1,13 @@
-# Price Tracker - Phase 2 Complete! 🎉
+# Price Tracker - Phase 3 Complete! 🎉
 
-A Python-based price tracking system that monitors competitor prices from multiple e-commerce sites, stores historical data, sends alerts, and generates weekly reports.
+A Python-based automated price tracking system that monitors competitor prices from multiple e-commerce sites, runs continuously in the background, stores historical data, and will send alerts and generate reports.
 
 ## 📋 Project Status
 
 **✅ Phase 1: Foundation Complete** _(Database, Configuration, Logging)_  
 **✅ Phase 2: Web Scraping Complete** _(Amazon, eBay scrapers, parallel execution)_  
-**⏳ Phase 3: Job Scheduling** _(Coming next)_
+**✅ Phase 3: Job Scheduling Complete** _(Automatic 4-hour intervals, background daemon)_  
+**⏳ Phase 4: Alerts** _(Coming next - Email & Slack notifications)_
 
 ### What's Been Built
 
@@ -30,6 +31,12 @@ A Python-based price tracking system that monitors competitor prices from multip
 | Orchestrator         | ✅ Complete | Runs scrapers in parallel, stores in database          |
 | Configuration Loader | ✅ Complete | Loads config.yaml and .env                             |
 | Scraping CLI         | ✅ Complete | Commands: scrape-now, scrape-site, list-sites          |
+| **Phase 3**          |             |                                                        |
+| Job Scheduler        | ✅ Complete | APScheduler integration with interval/cron triggers    |
+| Daemon Manager       | ✅ Complete | Background process control with PID file               |
+| Scheduler CLI        | ✅ Complete | Commands: start, stop, restart, status, list-jobs      |
+| Process Monitoring   | ✅ Complete | CPU, memory, uptime tracking with psutil               |
+| Graceful Shutdown    | ✅ Complete | Signal handlers for SIGINT/SIGTERM                     |
 
 ---
 
@@ -246,6 +253,157 @@ python main.py scrape-now --workers 5
 
 ---
 
+## ⏰ Phase 3: Job Scheduling Quick Start
+
+### Start the Scheduler (Background Mode)
+
+```powershell
+python main.py start
+```
+
+**Output:**
+
+```
+✓ Scheduler started successfully
+PID: 12345
+Log file: logs/scheduler.log
+
+The scheduler is now running in the background every 4 hours.
+Use 'python main.py status' to check status.
+```
+
+**What it does:**
+- Spawns background daemon process
+- Runs scraping automatically every 4 hours (configurable)
+- Writes to `logs/scheduler.log`
+- Stores PID in `scheduler.pid`
+
+### Check Scheduler Status
+
+```powershell
+python main.py status
+```
+
+**Output:**
+
+```
+========================================
+SCHEDULER STATUS
+========================================
+Running         : True
+PID             : 12345
+CPU Usage       : 0.5%
+Memory          : 45.2 MB
+Uptime          : 2h 34m 12s
+Started At      : 2024-03-10 14:23:45
+========================================
+```
+
+**With verbose logs:**
+
+```powershell
+python main.py status --verbose
+```
+
+### Stop the Scheduler
+
+```powershell
+python main.py stop
+```
+
+**Output:**
+
+```
+Stopping scheduler (PID: 12345)...
+✓ Scheduler stopped successfully
+```
+
+**With custom timeout:**
+
+```powershell
+python main.py stop --timeout 30  # Wait 30 seconds before force kill
+```
+
+### Restart the Scheduler
+
+```powershell
+python main.py restart
+```
+
+### View Scheduled Jobs
+
+```powershell
+python main.py list-jobs
+```
+
+**Output:**
+
+```
+========================================
+SCHEDULED JOBS
+========================================
+✗ Scheduler is not running
+
+Schedule Configuration:
+  Interval: Every 4 hours
+  Sites: Amazon, eBay
+  Max Workers: 3
+  Timeout: 30 seconds
+
+Products to scrape:
+  1. prod_001 - PlayStation 5 Console
+     Amazon: https://www.amazon.com/dp/B0CL5KNB9M
+     eBay: https://www.ebay.com/itm/123456789
+
+Use 'python main.py start' to begin automatic scraping.
+========================================
+```
+
+### Run in Foreground (for debugging)
+
+```powershell
+python main.py start --foreground
+```
+
+**What it does:**
+- Runs scheduler in current terminal (blocks)
+- Shows all logs immediately
+- Press Ctrl+C to stop
+- Useful for debugging
+
+### Customize Schedule
+
+**Edit `config.yaml`:**
+
+```yaml
+# Option 1: Interval-based (every N hours)
+scrape_interval_hours: 4
+
+# Option 2: Cron-based (specific times)
+scrape_cron: "0 9,15,21 * * *"  # 9 AM, 3 PM, 9 PM daily
+```
+
+**Monitoring:**
+
+```powershell
+# View logs in real-time
+Get-Content logs\scheduler.log -Wait -Tail 20
+
+# Check database for new prices
+python main.py test-db
+```
+
+**Troubleshooting:**
+
+- Scheduler won't start: Check `logs/scheduler.log` for errors
+- Already running: Use `python main.py stop` first
+- Permission denied: Delete `scheduler.pid` manually
+- Process stuck: Use `python main.py stop --timeout 5` then force kill PID
+
+**📖 Detailed Guide:** See `PHASE3_SUMMARY.md` for complete architecture explanation
+
+---
+
 ## 🧪 Testing
 
 ### Run All Tests
@@ -285,11 +443,24 @@ pytest tests/ --cov=. --cov-report=html
 | `scrape-site <name>`     | Run scraper for specific site       |
 | `list-sites`             | List all supported sites            |
 
-### Coming in Phase 3
+### Phase 3 Commands
 
-| Command     | Description            |
-| ----------- | ---------------------- |
-| `start`     | Start scheduler daemon |
+| Command                  | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `start`                  | Start scheduler daemon                   |
+| `start --foreground`     | Start in foreground (blocking mode)      |
+| `stop`                   | Stop scheduler daemon                    |
+| `stop --timeout N`       | Stop with N second timeout (default: 10) |
+| `restart`                | Restart scheduler daemon                 |
+| `status`                 | Show scheduler status (PID, CPU, memory) |
+| `status --verbose`       | Show status + recent logs                |
+| `list-jobs`              | Show scheduled jobs and configuration    |
+
+### Coming in Phase 4
+
+| Command | Description                   |
+| ------- | ----------------------------- |
+| `alert` | Configure price drop alerts   |
 | `stop`      | Stop scheduler         |
 | `list-jobs` | Show scheduled jobs    |
 
@@ -315,8 +486,10 @@ Price Tracker/
 │   └── __init__.py
 ├── reports/               # Weekly report generation (Phase 5)
 │   └── __init__.py
-├── scheduler/             # APScheduler jobs (Phase 3)
-│   └── __init__.py
+├── scheduler/             # ✅ APScheduler jobs (Phase 3)
+│   ├── __init__.py
+│   ├── job_scheduler.py   # APScheduler integration
+│   └── daemon_manager.py  # Background daemon control
 ├── tests/                 # ✅ Pytest tests
 │   ├── __init__.py
 │   ├── conftest.py        # Shared fixtures
@@ -339,7 +512,8 @@ Price Tracker/
 ├── main.py                # ✅ CLI entry point with scraping commands
 ├── README.md              # ✅ This file
 ├── PHASE1_SUMMARY.md      # ✅ Detailed Phase 1 documentation
-└── PHASE2_SUMMARY.md      # ✅ Detailed Phase 2 documentation
+├── PHASE2_SUMMARY.md      # ✅ Detailed Phase 2 documentation
+└── PHASE3_SUMMARY.md      # ✅ Detailed Phase 3 documentation
 ```
 
 ---
@@ -583,15 +757,17 @@ pip install pytest pytest-cov
 
 ---
 
-## 📚 Next Steps: Phase 2
+## 📚 Next Steps: Phase 4
 
-Once Phase 1 is verified, we'll build:
+Phase 3 is complete! Next up:
 
-1. **Base Scraper Class** - Common scraping logic
-2. **Site-Specific Scrapers** - Amazon, eBay, etc.
-3. **Price Normalizer** - Handle different price formats
-4. **Scraper Orchestrator** - Run all scrapers in parallel
-5. **Unit Tests** - Mock HTTP responses
+1. **Alert Manager** - Detect price drops below thresholds
+2. **Email Notifications** - Send alerts via SMTP
+3. **Slack Integration** - Post alerts to Slack webhook
+4. **Alert History** - Track sent alerts in database
+5. **Alert Configuration** - CLI commands for threshold management
+
+**Phase 4 will make the system truly useful** by notifying you automatically when prices drop!
 
 ---
 
@@ -621,5 +797,5 @@ Personal project - all rights reserved.
 
 ---
 
-**Phase 1 Complete! 🚀**  
-_Database, logging, and configuration foundation ready for Phase 2 (Web Scraping)_
+**Phase 1 ✅ Phase 2 ✅ Phase 3 Complete! 🚀**  
+_Automated price tracking system with background scheduling ready for Phase 4 (Alerts)_

@@ -19,6 +19,8 @@ pydantic-settings>=2.1.0  # Settings management with Pydantic
 
 # Scheduling
 apscheduler>=3.10.0       # Advanced Python Scheduler
+pytz>=2023.3              # Timezone support for APScheduler
+psutil>=5.9.0             # Process and system utilities for daemon management
 
 # Alerting
 slack-sdk>=3.26.0         # Official Slack SDK for alerts

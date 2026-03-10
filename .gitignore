@@ -46,6 +46,10 @@ logs/*.log
 logs/*.txt
 logs/failed_scrapes/
 
+# Scheduler
+scheduler.pid
+scheduler/_daemon_runner.py
+
 # Test Coverage
 .coverage
 htmlcov/
