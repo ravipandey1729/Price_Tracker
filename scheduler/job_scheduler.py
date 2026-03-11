@@ -41,6 +41,7 @@ from pytz import timezone as pytz_timezone
 from database.connection import get_session
 from scrapers.orchestrator import ScraperOrchestrator
 from alerts.alert_manager import AlertManager
+from reports.report_generator import ReportGenerator
 from utils.logging_config import get_logger
 
 
@@ -209,6 +210,116 @@ class PriceTrackerScheduler:
             raise
     
     
+    def add_weekly_report_job(self) -> Optional[str]:
+        """
+        Add weekly report job to the scheduler.
+        
+        Uses configuration to determine schedule:
+        - reports.enabled: Whether to enable weekly reports
+        - scheduling.weekly_report: Day of week, hour, minute
+        
+        Returns:
+            Job ID if added, None if reports disabled
+        """
+        # Check if reports are enabled
+        reports_config = self.config.get('reports', {})
+        if not reports_config.get('enabled', True):
+            logger.info("Weekly reports disabled in configuration")
+            return None
+        
+        # Get schedule from config
+        schedule_config = self.config.get('scheduling', {}).get('weekly_report', {})
+        
+        if not schedule_config.get('enabled', True):
+            logger.info("Weekly report scheduling disabled in configuration")
+            return None
+        
+        # Parse schedule (default: Sunday at 8 PM)
+        day_of_week = schedule_config.get('day_of_week', 'sun')
+        hour = schedule_config.get('hour', 20)
+        minute = schedule_config.get('minute', 0)
+        
+        # Map day names to APScheduler format
+        day_map = {
+            'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
+            'fri': 4, 'sat': 5, 'sun': 6
+        }
+        
+        day_num = day_map.get(day_of_week.lower(), 6)  # Default to Sunday
+        
+        # Add job with cron trigger
+        job = self.scheduler.add_job(
+            func=self._run_weekly_report_job,
+            trigger=CronTrigger(
+                day_of_week=day_num,
+                hour=hour,
+                minute=minute,
+                timezone=pytz_timezone('UTC')
+            ),
+            id='weekly_report_job',
+            name='Weekly Price Report',
+            replace_existing=True
+        )
+        
+        logger.info(
+            f"Added weekly report job: {day_of_week.upper()} at {hour:02d}:{minute:02d} "
+            f"(next run: {job.next_run_time})"
+        )
+        return job.id
+    
+    
+    def _run_weekly_report_job(self):
+        """
+        Execute the weekly report job.
+        
+        This is called by APScheduler on schedule.
+        Generates and sends weekly price report with charts.
+        """
+        logger.info("=" * 70)
+        logger.info("WEEKLY REPORT JOB STARTED")
+        logger.info("=" * 70)
+        
+        start_time = datetime.now()
+        
+        try:
+            with get_session() as session:
+                generator = ReportGenerator(self.config, session)
+                
+                logger.info("Generating weekly price report...")
+                results = generator.generate_weekly_report(send_email=True)
+                
+                if results.get('success', False):
+                    logger.info(
+                        f"Report generated: {results.get('products_analyzed', 0)} products, "
+                        f"{results.get('charts_generated', 0)} charts"
+                    )
+                    
+                    if results.get('email_sent', False):
+                        logger.info("Report email sent successfully")
+                    else:
+                        reason = results.get('email_reason', results.get('email_error', 'Unknown'))
+                        logger.warning(f"Report email not sent: {reason}")
+                else:
+                    error = results.get('error', 'Unknown error')
+                    logger.error(f"Report generation failed: {error}")
+            
+            duration = (datetime.now() - start_time).total_seconds()
+            
+            logger.info("=" * 70)
+            logger.info("WEEKLY REPORT JOB COMPLETED")
+            logger.info(f"Duration: {duration:.2f} seconds")
+            logger.info("=" * 70)
+            
+            # Calculate next run
+            job = self.scheduler.get_job('weekly_report_job')
+            if job:
+                logger.info(f"Next scheduled report: {job.next_run_time}")
+        
+        except Exception as e:
+            logger.error(f"Weekly report job failed: {e}", exc_info=True)
+            raise
+    
+    
     def _job_executed_listener(self, event: JobExecutionEvent):
         """
         Listen to job execution events for logging.
@@ -238,6 +349,9 @@ class PriceTrackerScheduler:
         
         # Add scraping job
         self.add_scraping_job()
+        
+        # Add weekly report job
+        self.add_weekly_report_job()
         
         # Register shutdown handlers
         self._register_shutdown_handlers()

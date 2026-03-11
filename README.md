@@ -1,6 +1,6 @@
-# Price Tracker - Phase 4 Complete! 🎉
+# Price Tracker - Phase 5 Complete! 🎉
 
-A Python-based automated price tracking system that monitors competitor prices from multiple e-commerce sites, runs continuously in the background, sends email and Slack alerts when prices drop, stores historical data, and generates reports.
+A Python-based automated price tracking system that monitors competitor prices from multiple e-commerce sites, runs continuously in the background, sends email and Slack alerts when prices drop, stores historical data, and generates beautiful weekly reports with charts.
 
 ## 📋 Project Status
 
@@ -8,7 +8,8 @@ A Python-based automated price tracking system that monitors competitor prices f
 **✅ Phase 2: Web Scraping Complete** _(Amazon, eBay scrapers, parallel execution)_  
 **✅ Phase 3: Job Scheduling Complete** _(Automatic 4-hour intervals, background daemon)_  
 **✅ Phase 4: Email & Slack Alerts Complete** _(Price drop notifications, threshold management)_  
-**⏳ Phase 5: Weekly Reports** _(Coming next)_
+**✅ Phase 5: Weekly Reports Complete** _(Price history charts, statistics, email reports)_  
+**⏳ Phase 6: Refinements & Polish** _(Coming next)_
 
 ### What's Been Built
 
@@ -45,6 +46,13 @@ A Python-based automated price tracking system that monitors competitor prices f
 | Threshold Management | ✅ Complete | CLI commands for add/list/remove thresholds            |
 | Alert History        | ✅ Complete | Database tracking of all sent alerts                   |
 | Cooldown System      | ✅ Complete | Prevent duplicate alerts within 24 hours               |
+| **Phase 5**          |             |                                                        |
+| Report Generator     | ✅ Complete | Weekly price reports with statistics and charts        |
+| Chart Generation     | ✅ Complete | Matplotlib charts (price history, comparison, savings) |
+| Email Reports        | ✅ Complete | HTML emails with embedded charts via base64            |
+| Statistics Engine    | ✅ Complete | Min/max/avg prices, trends, savings calculation        |
+| Weekly Scheduling    | ✅ Complete | Automatic report generation on configured day/time     |
+| Report CLI           | ✅ Complete | Command: generate-report with --no-email flag          |
 
 ---
 
@@ -553,6 +561,181 @@ python main.py remove-threshold --product prod_001 --type email
 
 ---
 
+## 📊 Phase 5: Weekly Reports Quick Start
+
+### Configure Weekly Reports
+
+**Step 1: Verify Email Configuration**
+
+Weekly reports use the same email settings as alerts. Ensure your email is configured:
+
+```yaml
+# config.yaml
+alerts:
+  email:
+    enabled: true
+    to_emails:
+      - "your-email@example.com"
+```
+
+**Step 2: Configure Report Settings**
+
+```yaml
+# config.yaml
+reports:
+  enabled: true              # Master switch
+  days_to_include: 7         # Include last 7 days of data
+  top_deals_count: 5         # Show top 5 savings opportunities
+  
+  # Chart settings
+  chart_width: 10
+  chart_height: 6
+  dpi: 100
+  
+  send_email: true
+
+# Configure when reports are sent
+scheduling:
+  weekly_report:
+    enabled: true
+    day_of_week: "sun"       # Send every Sunday
+    hour: 20                 # At 8 PM
+    minute: 0
+```
+
+### Generate Report Manually
+
+```powershell
+# Generate and send report via email
+python main.py generate-report
+
+# Generate without sending (preview mode)
+python main.py generate-report --no-email
+```
+
+**Output:**
+
+```
+==================================================
+      Generating Weekly Report
+==================================================
+Report Configuration:
+  Days to include: 7
+  Top deals count: 5
+  Send email: True
+
+Generating report...
+Generated 3 charts
+Connecting to SMTP server smtp.gmail.com:587
+Report email sent to 1 recipients
+
+✓ Report generated successfully!
+  Products analyzed: 5
+  Charts generated: 3
+  Period: 2026-03-04 to 2026-03-11
+  ✓ Report email sent successfully
+```
+
+### What's Included in Reports
+
+**Email Report Contains:**
+
+1. **Summary Statistics**
+   - Products tracked
+   - Potential savings
+   - Price alerts sent
+   - Scraper success rate
+
+2. **Best Deal Highlight**
+   - Product with highest savings
+   - Savings amount and percentage
+   - Direct link to product
+
+3. **Price Trend Charts**
+   - Price history line charts
+   - Price comparison bar charts
+   - Savings opportunities chart
+
+4. **Product Details Cards**
+   - Current price
+   - Week low (lowest price in period)
+   - Week high (highest price in period)
+   - Average price
+   - Trend indicator (increasing/decreasing/stable)
+   - Potential savings
+
+5. **Scraper Performance**
+   - Total runs
+   - Success/failure counts
+   - Average duration
+
+### Automatic Weekly Reports
+
+Once the scheduler is running, reports are automatically generated:
+
+```powershell
+# Start scheduler (runs in background)
+python main.py start
+
+# Check next report time
+python main.py list-jobs
+```
+
+**Output:**
+
+```
+Scheduled Jobs (2):
+
+Job: Automated Price Scraping
+  ID: scraping_job
+  Next Run: 2026-03-11 19:00:00
+  Trigger: interval[0:04:00:00]
+
+Job: Weekly Price Report
+  ID: weekly_report_job
+  Next Run: 2026-03-14 20:00:00  ← Next Sunday at 8 PM
+  Trigger: cron[day_of_week='6', hour='20', minute='0']
+```
+
+### Customize Report Schedule
+
+Edit `config.yaml` to change when reports are sent:
+
+```yaml
+scheduling:
+  weekly_report:
+    day_of_week: "fri"   # Send every Friday
+    hour: 17             # At 5 PM
+    minute: 30           # At 5:30 PM
+```
+
+Then restart the scheduler:
+
+```powershell
+python main.py restart
+```
+
+### Troubleshooting
+
+**Charts not displaying in email?**
+- Try different email client (Outlook, Apple Mail work well)
+- Gmail may block base64 images - use "Display images" option
+
+**Report not being sent?**
+- Check `reports.enabled: true` in config.yaml
+- Verify email is configured and working (`python main.py test-alerts`)
+- Check logs in `logs/price_tracker.log`
+
+**Want more history?**
+```yaml
+reports:
+  days_to_include: 14  # Show 14 days instead of 7
+```
+
+**📖 Detailed Guide:** See `PHASE5_SUMMARY.md` for complete report documentation
+
+---
+
 ## 🧪 Testing
 
 ### Run All Tests
@@ -616,11 +799,12 @@ pytest tests/ --cov=. --cov-report=html
 | `remove-threshold --product <id> --type X`  | Remove by product and type            |
 | `test-alerts`                               | Test alert system manually            |
 
-### Coming in Phase 5
+### Phase 5 Commands
 
-| Command        | Description                   |
-| -------------- | ----------------------------- |
-| `generate-report` | Generate weekly price report |
+| Command                     | Description                                    |
+| --------------------------- | ---------------------------------------------- |
+| `generate-report`           | Generate and send weekly price report          |
+| `generate-report --no-email`| Generate report without sending email (preview)|
 
 ---
 
@@ -953,9 +1137,10 @@ Personal project - all rights reserved.
 - **SQLAlchemy:** https://docs.sqlalchemy.org/
 - **Pytest:** https://docs.pytest.org/
 - **Python Logging:** https://docs.python.org/3/howto/logging.html
+- **Matplotlib:** https://matplotlib.org/stable/index.html
 - **YAML:** https://pyyaml.org/wiki/PyYAMLDocumentation
 
 ---
 
-**Phase 1 ✅ Phase 2 ✅ Phase 3 ✅ Phase 4 Complete! 🚀**  
-_Automated price tracking with email/Slack alerts - Ready for Phase 5 (Weekly Reports)_
+**Phase 1 ✅ Phase 2 ✅ Phase 3 ✅ Phase 4 ✅ Phase 5 Complete! 🚀**  
+_Automated price tracking with email/Slack alerts and weekly reports - Ready for Phase 6 (Refinements & Polish)_

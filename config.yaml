@@ -149,6 +149,22 @@ alerts:
     alert_on_target_price: true # Alert when price drops below target
 
 # ============================================================================
+# WEEKLY REPORTS
+# ============================================================================
+reports:
+  enabled: true # Enable weekly email reports
+  days_to_include: 7 # Include last 7 days of price data
+  top_deals_count: 5 # Show top 5 savings opportunities
+  
+  # Chart settings for email reports
+  chart_width: 10 # Width in inches
+  chart_height: 6 # Height in inches
+  dpi: 100 # Resolution for embedded charts
+  
+  # Email delivery (uses same SMTP settings as alerts)
+  send_email: true
+
+# ============================================================================
 # REPORTING
 # ============================================================================
 reporting:

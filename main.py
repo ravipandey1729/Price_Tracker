@@ -18,6 +18,7 @@ Usage:
     python main.py list-thresholds  # List all thresholds
     python main.py remove-threshold --id <threshold_id>  # Remove threshold
     python main.py test-alerts   # Test alert system
+    python main.py generate-report  # Generate and send weekly price report
 """
 
 import sys
@@ -42,6 +43,7 @@ from scrapers.orchestrator import ScraperOrchestrator
 from scrapers.scraper_factory import get_available_sites
 from scheduler.daemon_manager import SchedulerDaemon
 from alerts.alert_manager import AlertManager
+from reports.report_generator import ReportGenerator
 from database.models import Product, Threshold
 
 
@@ -318,10 +320,70 @@ def cmd_test_alerts(args):
         sys.exit(1)
 
 
+def cmd_generate_report(args):
+    """Generate and send weekly price report"""
+    log_section_separator(logger, "Generating Weekly Report")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        # Check if reports are enabled
+        report_config = config.get('reports', {})
+        if not report_config.get('enabled', True):
+            logger.warning("Reports are disabled in config.yaml")
+            logger.info("Set 'reports.enabled: true' to enable reports")
+            return
+        
+        # Check email configuration
+        email_config = config.get('alerts', {}).get('email', {})
+        if not email_config.get('enabled', False):
+            logger.warning("Email not enabled. Report will be generated but not sent.")
+            logger.info("Enable email in config.yaml to send reports")
+            send_email = False
+        else:
+            send_email = args.send_email
+        
+        with get_session() as session:
+            generator = ReportGenerator(config, session)
+            
+            logger.info("Report Configuration:")
+            logger.info(f"  Days to include: {generator.days_to_include}")
+            logger.info(f"  Top deals count: {generator.top_deals_count}")
+            logger.info(f"  Send email: {send_email}")
+            logger.info("")
+            
+            logger.info("Generating report...")
+            results = generator.generate_weekly_report(send_email=send_email)
+            
+            if results.get('success', False):
+                logger.info("\n✓ Report generated successfully!")
+                logger.info(f"  Products analyzed: {results.get('products_analyzed', 0)}")
+                logger.info(f"  Charts generated: {results.get('charts_generated', 0)}")
+                logger.info(f"  Period: {results.get('period_start', '')} to {results.get('period_end', '')}")
+                
+                if results.get('email_sent', False):
+                    logger.info("  ✓ Report email sent successfully")
+                else:
+                    reason = results.get('email_reason', results.get('email_error', 'Unknown'))
+                    logger.info(f"  ✗ Report email not sent: {reason}")
+            else:
+                error = results.get('error', 'Unknown error')
+                logger.error(f"✗ Report generation failed: {error}")
+                sys.exit(1)
+    
+    except Exception as e:
+        logger.error(f"✗ Report generation failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
 def cmd_version(args):
     """Show version information"""
-    print("Price Tracker v0.4.0 (Phase 4: Email & Slack Alerts)")
-    print("Features: Database, Logging, Configuration, Web Scraping, Automated Scheduling, Alerts")
+    print("Price Tracker v0.5.0 (Phase 5: Weekly Reports)")
+    print("Features: Database, Logging, Configuration, Web Scraping, Automated Scheduling, Alerts, Weekly Reports")
 
 
 def cmd_scrape_now(args):
@@ -640,7 +702,7 @@ def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(
         description="Price Tracker - Monitor competitor prices automatically",
-        epilog="Available commands: init, test-db, test-logging, scrape-now, scrape-site, start, stop, restart, status, list-jobs, add-threshold, list-thresholds, remove-threshold, test-alerts"
+        epilog="Available commands: init, test-db, test-logging, scrape-now, scrape-site, start, stop, restart, status, list-jobs, add-threshold, list-thresholds, remove-threshold, test-alerts, generate-report"
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -717,6 +779,11 @@ def main():
     # Test alerts command
     parser_test_alerts = subparsers.add_parser('test-alerts', help='Test alert system')
     parser_test_alerts.set_defaults(func=cmd_test_alerts)
+    
+    # Generate report command
+    parser_generate_report = subparsers.add_parser('generate-report', help='Generate and send weekly price report')
+    parser_generate_report.add_argument('--no-email', dest='send_email', action='store_false', default=True, help='Generate report without sending email')
+    parser_generate_report.set_defaults(func=cmd_generate_report)
     
     # Version command
     parser_version = subparsers.add_parser('version', help='Show version')
