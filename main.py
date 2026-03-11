@@ -14,6 +14,10 @@ Usage:
     python main.py restart       # Restart scheduler
     python main.py status        # Show scheduler status
     python main.py list-jobs     # List scheduled jobs
+    python main.py add-threshold <product_id> <price>  # Add price alert threshold
+    python main.py list-thresholds  # List all thresholds
+    python main.py remove-threshold --id <threshold_id>  # Remove threshold
+    python main.py test-alerts   # Test alert system
 """
 
 import sys
@@ -37,6 +41,8 @@ from utils.config import load_config
 from scrapers.orchestrator import ScraperOrchestrator
 from scrapers.scraper_factory import get_available_sites
 from scheduler.daemon_manager import SchedulerDaemon
+from alerts.alert_manager import AlertManager
+from database.models import Product, Threshold
 
 
 # Setup logger
@@ -104,10 +110,218 @@ def cmd_test_logging(args):
     logger.info("\n✓ Logging test complete. Check logs/ folder for output files.")
 
 
+def cmd_add_threshold(args):
+    """Add a price threshold for alerts"""
+    log_section_separator(logger, "Adding Price Threshold")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        with get_session() as session:
+            # Find product
+            product = session.query(Product).filter(
+                Product.id == args.product_id
+            ).first()
+            
+            if not product:
+                logger.error(f"Product '{args.product_id}' not found")
+                logger.info("\nRun 'python main.py init' to populate products from config.yaml")
+                return
+            
+            # Check if threshold already exists
+            existing = session.query(Threshold).filter(
+                Threshold.product_id == product.id,
+                Threshold.alert_type == args.alert_type
+            ).first()
+            
+            if existing:
+                logger.warning(f"Threshold already exists for {product.name} ({args.alert_type})")
+                logger.info(f"Current threshold: ${existing.threshold_price:.2f}")
+                logger.info(f"Use 'python main.py remove-threshold {product.id} {args.alert_type}' first")
+                return
+            
+            # Create threshold
+            threshold = Threshold(
+                product_id=product.id,
+                threshold_price=args.price,
+                alert_type=args.alert_type
+            )
+            
+            session.add(threshold)
+            session.commit()
+            
+            logger.info("=" * 70)
+            logger.info("✓ Threshold added successfully")
+            logger.info("=" * 70)
+            logger.info(f"Product: {product.name}")
+            logger.info(f"Threshold Price: ${args.price:.2f}")
+            logger.info(f"Alert Type: {args.alert_type}")
+            logger.info("=" * 70)
+            logger.info("\nYou will receive alerts when the price drops below this threshold.")
+    
+    except Exception as e:
+        logger.error(f"✗ Failed to add threshold: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_list_thresholds(args):
+    """List all configured thresholds"""
+    log_section_separator(logger, "Price Thresholds")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        with get_session() as session:
+            thresholds = session.query(Threshold).all()
+            
+            if not thresholds:
+                logger.info("No thresholds configured")
+                logger.info("\nUse 'python main.py add-threshold' to add thresholds")
+                return
+            
+            logger.info(f"\nFound {len(thresholds)} threshold(s):\n")
+            
+            for threshold in thresholds:
+                product = threshold.product
+                logger.info("=" * 70)
+                logger.info(f"Threshold ID: {threshold.id}")
+                logger.info(f"Product: {product.name} ({product.id})")
+                logger.info(f"Threshold Price: ${threshold.threshold_price:.2f}")
+                logger.info(f"Alert Type: {threshold.alert_type}")
+                logger.info(f"Created: {threshold.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Show current price if available
+                from database.models import Price
+                latest_price = session.query(Price).filter(
+                    Price.product_id == product.id
+                ).order_by(Price.scraped_at.desc()).first()
+                
+                if latest_price:
+                    logger.info(f"Current Price: ${latest_price.price:.2f} ({latest_price.source_site})")
+                    if latest_price.price < threshold.threshold_price:
+                        logger.info("⚠️  BELOW THRESHOLD - Alert should be sent!")
+                    else:
+                        diff = latest_price.price - threshold.threshold_price
+                        logger.info(f"Above threshold by ${diff:.2f}")
+                else:
+                    logger.info("Current Price: No price data yet")
+            
+            logger.info("=" * 70)
+    
+    except Exception as e:
+        logger.error(f"✗ Failed to list thresholds: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_remove_threshold(args):
+    """Remove a price threshold"""
+    log_section_separator(logger, "Removing Price Threshold")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        with get_session() as session:
+            if args.threshold_id:
+                # Remove by threshold ID
+                threshold = session.query(Threshold).filter(
+                    Threshold.id == args.threshold_id
+                ).first()
+                
+                if not threshold:
+                    logger.error(f"Threshold ID {args.threshold_id} not found")
+                    return
+            else:
+                # Remove by product ID and alert type
+                product = session.query(Product).filter(
+                    Product.id == args.product_id
+                ).first()
+                
+                if not product:
+                    logger.error(f"Product '{args.product_id}' not found")
+                    return
+                
+                threshold = session.query(Threshold).filter(
+                    Threshold.product_id == product.id,
+                    Threshold.alert_type == args.alert_type
+                ).first()
+                
+                if not threshold:
+                    logger.error(f"No {args.alert_type} threshold found for {product.name}")
+                    return
+            
+            product_name = threshold.product.name
+            threshold_price = threshold.threshold_price
+            alert_type = threshold.alert_type
+            
+            session.delete(threshold)
+            session.commit()
+            
+            logger.info("✓ Threshold removed successfully")
+            logger.info(f"Product: {product_name}")
+            logger.info(f"Threshold: ${threshold_price:.2f}")
+            logger.info(f"Alert Type: {alert_type}")
+    
+    except Exception as e:
+        logger.error(f"✗ Failed to remove threshold: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_test_alerts(args):
+    """Test alert system manually"""
+    log_section_separator(logger, "Testing Alert System")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        # Check alert configuration
+        alert_config = config.get('alerts', {})
+        if not alert_config.get('enabled', True):
+            logger.warning("Alerts are disabled in config.yaml")
+            logger.info("Set 'alerts.enabled: true' to enable alerts")
+            return
+        
+        with get_session() as session:
+            alert_manager = AlertManager(config, session)
+            
+            logger.info("Alert Configuration:")
+            logger.info(f"  Email: {'Enabled' if alert_manager.email_enabled else 'Disabled'}")
+            logger.info(f"  Slack: {'Enabled' if alert_manager.slack_enabled else 'Disabled'}")
+            logger.info(f"  Cooldown: {alert_manager.cooldown_hours} hours")
+            logger.info("")
+            
+            # Run alert check
+            results = alert_manager.check_and_send_alerts()
+            
+            logger.info("\nTest Results:")
+            logger.info(f"  Alerts Sent: {results.get('alerts_sent', 0)}")
+            logger.info(f"  Errors: {results.get('errors', 0)}")
+            
+            if results.get('alerts_sent', 0) == 0:
+                logger.info("\nNo alerts sent. This could mean:")
+                logger.info("  • No thresholds configured (use 'add-threshold')")
+                logger.info("  • Current prices are above thresholds")
+                logger.info("  • Alert cooldown is active")
+                logger.info("  • Email/Slack not configured properly")
+    
+    except Exception as e:
+        logger.error(f"✗ Alert test failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
 def cmd_version(args):
     """Show version information"""
-    print("Price Tracker v0.3.0 (Phase 3: Job Scheduling)")
-    print("Features: Database, Logging, Configuration, Web Scraping, Automated Scheduling")
+    print("Price Tracker v0.4.0 (Phase 4: Email & Slack Alerts)")
+    print("Features: Database, Logging, Configuration, Web Scraping, Automated Scheduling, Alerts")
 
 
 def cmd_scrape_now(args):
@@ -426,7 +640,7 @@ def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(
         description="Price Tracker - Monitor competitor prices automatically",
-        epilog="Available commands: init, test-db, test-logging, scrape-now, scrape-site, start, stop, restart, status, list-jobs"
+        epilog="Available commands: init, test-db, test-logging, scrape-now, scrape-site, start, stop, restart, status, list-jobs, add-threshold, list-thresholds, remove-threshold, test-alerts"
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -480,6 +694,29 @@ def main():
     # List jobs command
     parser_list_jobs = subparsers.add_parser('list-jobs', help='List scheduled jobs')
     parser_list_jobs.set_defaults(func=cmd_list_jobs)
+    
+    # Add threshold command
+    parser_add_threshold = subparsers.add_parser('add-threshold', help='Add price threshold for alerts')
+    parser_add_threshold.add_argument('product_id', help='Product ID from config.yaml')
+    parser_add_threshold.add_argument('price', type=float, help='Threshold price (alert when below)')
+    parser_add_threshold.add_argument('--type', dest='alert_type', choices=['email', 'slack', 'all'], default='all', help='Alert type (default: all)')
+    parser_add_threshold.set_defaults(func=cmd_add_threshold)
+    
+    # List thresholds command
+    parser_list_thresholds = subparsers.add_parser('list-thresholds', help='List all price thresholds')
+    parser_list_thresholds.set_defaults(func=cmd_list_thresholds)
+    
+    # Remove threshold command
+    parser_remove_threshold = subparsers.add_parser('remove-threshold', help='Remove price threshold')
+    remove_group = parser_remove_threshold.add_mutually_exclusive_group(required=True)
+    remove_group.add_argument('--id', type=int, dest='threshold_id', help='Threshold ID to remove')
+    remove_group.add_argument('--product', dest='product_id', help='Product ID')
+    parser_remove_threshold.add_argument('--type', dest='alert_type', choices=['email', 'slack', 'all'], help='Alert type (required with --product)')
+    parser_remove_threshold.set_defaults(func=cmd_remove_threshold)
+    
+    # Test alerts command
+    parser_test_alerts = subparsers.add_parser('test-alerts', help='Test alert system')
+    parser_test_alerts.set_defaults(func=cmd_test_alerts)
     
     # Version command
     parser_version = subparsers.add_parser('version', help='Show version')

@@ -1,6 +1,7 @@
 # Phase 3 Complete: Automatic Job Scheduling
 
 ## 📋 Summary
+
 Phase 3 adds automatic scheduling capabilities so your price tracker runs continuously in the background, scraping prices at configured intervals without manual intervention.
 
 ---
@@ -8,19 +9,22 @@ Phase 3 adds automatic scheduling capabilities so your price tracker runs contin
 ## ✅ What Was Built
 
 ### 1. **Job Scheduler (APScheduler Integration)**
+
 **File:** `scheduler/job_scheduler.py` (15,200 bytes)
 
 **Purpose:** Manages automated scraping jobs using APScheduler with interval-based or cron-based scheduling.
 
 **Key Features:**
+
 - **Interval Scheduling:** Run every N hours (e.g., every 4 hours)
-- **Cron Scheduling:** Specific times (e.g., "0 9 * * *" = daily at 9 AM)
+- **Cron Scheduling:** Specific times (e.g., "0 9 \* \* \*" = daily at 9 AM)
 - **Blocking & Background Modes:** Run in foreground or as daemon
 - **Job Persistence:** Survives crashes with misfire handling
 - **Event Listeners:** Tracks job execution and failures
 - **Graceful Shutdown:** Handles Ctrl+C and SIGTERM
 
 **How It Works:**
+
 ```python
 from scheduler.job_scheduler import PriceTrackerScheduler
 from utils.config import load_config
@@ -35,14 +39,16 @@ scheduler.start()
 ```
 
 **Configuration (config.yaml):**
+
 ```yaml
 scheduler:
-  scrape_interval_hours: 4  # Run every 4 hours
+  scrape_interval_hours: 4 # Run every 4 hours
   # OR use cron:
   # scrape_cron: "0 9,21 * * *"  # Daily at 9 AM and 9 PM
 ```
 
 **Job Execution Flow:**
+
 ```
 Scheduler starts → Add scraping job → Set trigger (interval/cron)
          ↓
@@ -61,11 +67,13 @@ Execute _run_scraping_job()
 ```
 
 **misfire Handling:**
+
 - If scheduler is down when job should run:
   - `coalesce=True`: Combine missed runs into one
   - `misfire_grace_time=300`: 5-minute grace period
 
 **Example Output:**
+
 ```
 2024-01-15 10:00:00 | INFO | ======================================
 2024-01-15 10:00:00 | INFO | SCHEDULED SCRAPING JOB STARTED
@@ -85,11 +93,13 @@ Execute _run_scraping_job()
 ---
 
 ### 2. **Daemon Manager (Background Process Control)**
+
 **File:** `scheduler/daemon_manager.py` (12,800 bytes)
 
 **Purpose:** Manages the scheduler as a background daemon process with PID file handling and process supervision.
 
 **Key Features:**
+
 - **Start in Background:** Spawn detached process that runs after terminal closes
 - **PID File Management:** Track running process
 - **Process Monitoring:** Check if scheduler is running, get CPU/memory usage
@@ -98,6 +108,7 @@ Execute _run_scraping_job()
 - **Status Reporting:** Detailed process information
 
 **Architecture:**
+
 ```
 Your Terminal
       │
@@ -126,6 +137,7 @@ Background Process (PID stored in scheduler.pid)
 ```
 
 **Usage:**
+
 ```python
 from scheduler.daemon_manager import SchedulerDaemon
 from utils.config import load_config
@@ -151,12 +163,15 @@ daemon.stop(timeout=10)  # Wait up to 10 seconds for graceful shutdown
 ```
 
 **PID File (scheduler.pid):**
+
 ```
 12345
 ```
+
 Simple text file storing just the process ID. Used to track the running daemon.
 
 **Process Lifecycle:**
+
 ```
 Start:
   1. Check if already running (read PID file)
@@ -181,11 +196,13 @@ Status:
 ```
 
 **Windows-Specific Details:**
+
 - Uses `CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS` flags
 - Process runs independently of parent terminal
 - Survives terminal closure
 
 **Unix-like Systems:**
+
 - Uses `start_new_session=True`
 - Similar detached behavior
 
@@ -194,17 +211,21 @@ Status:
 ---
 
 ### 3. **CLI Commands (Scheduler Management)**
+
 **File:** `main.py` (updated, now ~450 lines)
 
 **New Commands Added:**
 
 #### **`python main.py start`**
+
 Start the scheduler daemon in background.
 
 **Options:**
+
 - `--foreground` - Run in foreground (blocks until Ctrl+C)
 
 **Examples:**
+
 ```bash
 # Start in background (recommended)
 $ python main.py start
@@ -231,12 +252,15 @@ Press Ctrl+C to stop
 ```
 
 #### **`python main.py stop`**
+
 Stop the running scheduler daemon.
 
 **Options:**
+
 - `--timeout N` - Wait up to N seconds for graceful shutdown (default: 10)
 
 **Example:**
+
 ```bash
 $ python main.py stop
 
@@ -247,9 +271,11 @@ Stopping Scheduler
 ```
 
 #### **`python main.py restart`**
+
 Restart the scheduler (stop + start).
 
 **Example:**
+
 ```bash
 $ python main.py restart
 
@@ -262,12 +288,15 @@ Restarting Scheduler
 ```
 
 #### **`python main.py status`**
+
 Show detailed scheduler status.
 
 **Options:**
+
 - `--verbose` or `-v` - Show recent log entries
 
 **Examples:**
+
 ```bash
 # Basic status
 $ python main.py status
@@ -299,9 +328,11 @@ Recent log entries:
 ```
 
 #### **`python main.py list-jobs`**
+
 List scheduled jobs and configuration.
 
 **Example:**
+
 ```bash
 $ python main.py list-jobs
 
@@ -327,19 +358,23 @@ Products to Track: 2
 ---
 
 ### 4. **Updated Dependencies**
+
 **File:** `requirements.txt` (updated)
 
 **Added:**
+
 ```python
 pytz>=2023.3              # Timezone support for APScheduler
 psutil>=5.9.0             # Process and system utilities for daemon management
 ```
 
 **Why needed:**
+
 - `pytz`: APScheduler requires timezone-aware scheduling
 - `psutil`: Cross-platform process management (CPU, memory, process control)
 
 **Installation:**
+
 ```bash
 pip install pytz psutil
 # OR
@@ -349,9 +384,11 @@ pip install -r requirements.txt
 ---
 
 ### 5. **Updated .gitignore**
+
 **File:** `.gitignore` (updated)
 
 **Added:**
+
 ```
 # Scheduler
 scheduler.pid
@@ -359,12 +396,14 @@ scheduler/_daemon_runner.py
 ```
 
 **Why:**
+
 - `scheduler.pid`: Runtime file, don't commit
 - `_daemon_runner.py`: Auto-generated script, don't commit
 
 ---
 
 ## 🗂️ File Structure
+
 ```
 Price Tracker/
 ├── scheduler/                      # ← NEW Phase 3
@@ -389,14 +428,16 @@ Price Tracker/
 ### **Setup**
 
 1. **Install new dependencies:**
+
    ```bash
    pip install pytz psutil
    ```
 
 2. **Configure schedule (config.yaml):**
+
    ```yaml
    scheduler:
-     scrape_interval_hours: 4  # Every 4 hours
+     scrape_interval_hours: 4 # Every 4 hours
      # OR use cron for specific times:
      # scrape_cron: "0 */6 * * *"  # Every 6 hours
      # scrape_cron: "0 9,21 * * *"  # Daily at 9 AM and 9 PM
@@ -455,9 +496,9 @@ $ python main.py start
 
 # Evening: Check results in database
 $ sqlite3 price_tracker.db
-sqlite> SELECT product_id, price, source_site, scraped_at 
-        FROM prices 
-        ORDER BY scraped_at DESC 
+sqlite> SELECT product_id, price, source_site, scraped_at
+        FROM prices
+        ORDER BY scraped_at DESC
         LIMIT 10;
 
 # See scraper performance
@@ -475,14 +516,16 @@ $ python main.py stop
 ## 📊 Scheduling Options
 
 ### **Option 1: Interval-Based (Simple)**
+
 Run every N hours.
 
 ```yaml
 scheduler:
-  scrape_interval_hours: 4  # Every 4 hours
+  scrape_interval_hours: 4 # Every 4 hours
 ```
 
 **Examples:**
+
 - `1`: Every hour
 - `4`: Every 4 hours (recommended for price tracking)
 - `6`: Every 6 hours
@@ -492,14 +535,16 @@ scheduler:
 **When to use:** Most price tracking scenarios. Simple and reliable.
 
 ### **Option 2: Cron-Based (Specific Times)**
+
 Run at specific times using cron syntax.
 
 ```yaml
 scheduler:
-  scrape_cron: "0 9,21 * * *"  # Daily at 9 AM and 9 PM
+  scrape_cron: "0 9,21 * * *" # Daily at 9 AM and 9 PM
 ```
 
 **Cron Syntax:**
+
 ```
 ┌───────────── minute (0 - 59)
 │ ┌───────────── hour (0 - 23)
@@ -511,6 +556,7 @@ scheduler:
 ```
 
 **Common Examples:**
+
 ```yaml
 # Every 6 hours
 scrape_cron: "0 */6 * * *"
@@ -532,6 +578,7 @@ scrape_cron: "0 10 * * 1"
 ## 🔍 Monitoring & Troubleshooting
 
 ### **Check Scheduler Status**
+
 ```bash
 $ python main.py status
 
@@ -545,6 +592,7 @@ Uptime: 2h 15m
 ```
 
 ### **View Logs**
+
 ```bash
 # Real-time log monitoring (PowerShell)
 $ Get-Content logs/scheduler.log -Wait -Tail 20
@@ -559,6 +607,7 @@ $ Select-String -Path logs/scheduler.log -Pattern "ERROR"
 ### **Common Issues**
 
 #### **Scheduler won't start - already running**
+
 ```bash
 $ python main.py start
 WARNING | Scheduler is already running (PID: 12345)
@@ -569,6 +618,7 @@ $ python main.py start
 ```
 
 #### **Scheduler shows running but not scraping**
+
 ```bash
 # Check status
 $ python main.py status --verbose
@@ -581,6 +631,7 @@ $ Get-Content logs/scheduler.log -Tail 50
 ```
 
 #### **Scheduler stopped unexpectedly**
+
 ```bash
 # Check logs for crash reason
 $ Get-Content logs/scheduler.log -Tail 100 | Select-String "ERROR"
@@ -590,6 +641,7 @@ $ python main.py restart
 ```
 
 #### **High CPU/Memory usage**
+
 ```bash
 # Check status
 $ python main.py status
@@ -676,6 +728,7 @@ $ python main.py restart
 ```
 
 **Key Points:**
+
 1. User runs `python main.py start` → Returns immediately
 2. Background process spawned → Runs independently
 3. APScheduler triggers scraping job every 4 hours
@@ -687,6 +740,7 @@ $ python main.py restart
 ## 🎯 Phase 3 Complete!
 
 **What You Can Do Now:**
+
 ```bash
 # 1. Start automatic scraping
 $ python main.py start
@@ -711,21 +765,23 @@ $ python main.py stop
 
 ## ⚡ Quick Reference
 
-| Command      | What It Does                      |
-| ------------ | --------------------------------- |
-| `start`      | Start scheduler in background     |
-| `stop`       | Stop scheduler                    |
-| `restart`    | Restart scheduler                 |
-| `status`     | Show detailed status              |
-| `status -v`  | Show status + recent logs         |
-| `list-jobs`  | Show scheduled jobs & config      |
+| Command     | What It Does                  |
+| ----------- | ----------------------------- |
+| `start`     | Start scheduler in background |
+| `stop`      | Stop scheduler                |
+| `restart`   | Restart scheduler             |
+| `status`    | Show detailed status          |
+| `status -v` | Show status + recent logs     |
+| `list-jobs` | Show scheduled jobs & config  |
 
 **Files:**
+
 - `scheduler.pid` - Process ID file
 - `logs/scheduler.log` - Scheduler output
 - `config.yaml` - Schedule configuration (scrape_interval_hours)
 
 **Behavior:**
+
 - Runs 24/7 in background
 - Survives terminal closure
 - Starts scraping immediately when started

@@ -1,13 +1,14 @@
-# Price Tracker - Phase 3 Complete! 🎉
+# Price Tracker - Phase 4 Complete! 🎉
 
-A Python-based automated price tracking system that monitors competitor prices from multiple e-commerce sites, runs continuously in the background, stores historical data, and will send alerts and generate reports.
+A Python-based automated price tracking system that monitors competitor prices from multiple e-commerce sites, runs continuously in the background, sends email and Slack alerts when prices drop, stores historical data, and generates reports.
 
 ## 📋 Project Status
 
 **✅ Phase 1: Foundation Complete** _(Database, Configuration, Logging)_  
 **✅ Phase 2: Web Scraping Complete** _(Amazon, eBay scrapers, parallel execution)_  
 **✅ Phase 3: Job Scheduling Complete** _(Automatic 4-hour intervals, background daemon)_  
-**⏳ Phase 4: Alerts** _(Coming next - Email & Slack notifications)_
+**✅ Phase 4: Email & Slack Alerts Complete** _(Price drop notifications, threshold management)_  
+**⏳ Phase 5: Weekly Reports** _(Coming next)_
 
 ### What's Been Built
 
@@ -37,6 +38,13 @@ A Python-based automated price tracking system that monitors competitor prices f
 | Scheduler CLI        | ✅ Complete | Commands: start, stop, restart, status, list-jobs      |
 | Process Monitoring   | ✅ Complete | CPU, memory, uptime tracking with psutil               |
 | Graceful Shutdown    | ✅ Complete | Signal handlers for SIGINT/SIGTERM                     |
+| **Phase 4**          |             |                                                        |
+| Alert Manager        | ✅ Complete | Price drop detection and notification system           |
+| Email Notifications  | ✅ Complete | HTML emails via SMTP with price comparisons            |
+| Slack Integration    | ✅ Complete | Webhook notifications with Block Kit formatting        |
+| Threshold Management | ✅ Complete | CLI commands for add/list/remove thresholds            |
+| Alert History        | ✅ Complete | Database tracking of all sent alerts                   |
+| Cooldown System      | ✅ Complete | Prevent duplicate alerts within 24 hours               |
 
 ---
 
@@ -273,6 +281,7 @@ Use 'python main.py status' to check status.
 ```
 
 **What it does:**
+
 - Spawns background daemon process
 - Runs scraping automatically every 4 hours (configurable)
 - Writes to `logs/scheduler.log`
@@ -366,6 +375,7 @@ python main.py start --foreground
 ```
 
 **What it does:**
+
 - Runs scheduler in current terminal (blocks)
 - Shows all logs immediately
 - Press Ctrl+C to stop
@@ -380,7 +390,7 @@ python main.py start --foreground
 scrape_interval_hours: 4
 
 # Option 2: Cron-based (specific times)
-scrape_cron: "0 9,15,21 * * *"  # 9 AM, 3 PM, 9 PM daily
+scrape_cron: "0 9,15,21 * * *" # 9 AM, 3 PM, 9 PM daily
 ```
 
 **Monitoring:**
@@ -401,6 +411,145 @@ python main.py test-db
 - Process stuck: Use `python main.py stop --timeout 5` then force kill PID
 
 **📖 Detailed Guide:** See `PHASE3_SUMMARY.md` for complete architecture explanation
+
+---
+
+## 🔔 Phase 4: Email & Slack Alerts Quick Start
+
+### Configure Email Alerts
+
+**Step 1: Set up Gmail App Password**
+
+1. Enable 2-Factor Authentication in your Google Account
+2. Go to https://myaccount.google.com/apppasswords
+3. Generate an app password for "Mail"
+
+**Step 2: Update .env file**
+
+```bash
+EMAIL_USERNAME=your-email@gmail.com
+EMAIL_PASSWORD=abcd efgh ijkl mnop  # App password from step 1
+EMAIL_FROM=your-email@gmail.com
+```
+
+**Step 3: Update config.yaml**
+
+```yaml
+alerts:
+  enabled: true
+  email:
+    enabled: true
+    to_emails:
+      - "your-email@gmail.com"  # Replace with your email
+```
+
+### Add Price Thresholds
+
+```powershell
+# Add threshold: Alert when price drops below $299.99
+python main.py add-threshold prod_001 299.99
+
+# View all thresholds
+python main.py list-thresholds
+```
+
+**Output:**
+
+```
+======================================================================
+✓ Threshold added successfully
+======================================================================
+Product: PlayStation 5 Console
+Threshold Price: $299.99
+Alert Type: all
+======================================================================
+
+You will receive alerts when the price drops below this threshold.
+```
+
+### Test Alerts
+
+```powershell
+python main.py test-alerts
+```
+
+**Output:**
+
+```
+============================================================
+ Testing Alert System
+============================================================
+Alert Configuration:
+  Email: Enabled
+  Slack: Disabled
+  Cooldown: 24 hours
+
+[Checking for price drops...]
+
+Test Results:
+  Alerts Sent: 1
+  Errors: 0
+```
+
+### Configure Slack (Optional)
+
+**Step 1: Create Slack Webhook**
+
+1. Go to https://api.slack.com/apps
+2. Create new app → "Incoming Webhooks"
+3. Activate and add to workspace
+4. Copy webhook URL
+
+**Step 2: Update .env**
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+**Step 3: Enable in config.yaml**
+
+```yaml
+alerts:
+  slack:
+    enabled: true
+    channel: "#price-alerts"
+```
+
+### Manage Thresholds
+
+```powershell
+# List all thresholds with current prices
+python main.py list-thresholds
+
+# Remove threshold by ID
+python main.py remove-threshold --id 1
+
+# Remove threshold by product
+python main.py remove-threshold --product prod_001 --type email
+```
+
+### How It Works
+
+**Automatic Mode:**
+1. Scheduler runs every 4 hours
+2. Scrapes prices from all sites
+3. Checks prices against thresholds
+4. Sends email/Slack alerts for price drops
+5. Records alerts in database
+
+**Email Alert Contains:**
+- Product name and source site
+- Old price (strikethrough) and new price (highlighted)
+- Discount percentage
+- Direct links to view product
+- Professional HTML formatting
+
+**Alert Cooldown:**
+- Prevents duplicate alerts for same product
+- Default: 24 hours (configurable in config.yaml)
+- Separate cooldowns for email vs Slack
+
+**📖 Detailed Guide:** See `PHASE4_SUMMARY.md` for complete alert system documentation
 
 ---
 
@@ -456,13 +605,22 @@ pytest tests/ --cov=. --cov-report=html
 | `status --verbose`       | Show status + recent logs                |
 | `list-jobs`              | Show scheduled jobs and configuration    |
 
-### Coming in Phase 4
+### Phase 4 Commands
 
-| Command | Description                   |
-| ------- | ----------------------------- |
-| `alert` | Configure price drop alerts   |
-| `stop`      | Stop scheduler         |
-| `list-jobs` | Show scheduled jobs    |
+| Command                                     | Description                           |
+| ------------------------------------------- | ------------------------------------- |
+| `add-threshold <product> <price>`           | Add price threshold for alerts        |
+| `add-threshold <product> <price> --type X`  | Specify alert type (email/slack/all)  |
+| `list-thresholds`                           | List all configured thresholds        |
+| `remove-threshold --id <id>`                | Remove threshold by ID                |
+| `remove-threshold --product <id> --type X`  | Remove by product and type            |
+| `test-alerts`                               | Test alert system manually            |
+
+### Coming in Phase 5
+
+| Command        | Description                   |
+| -------------- | ----------------------------- |
+| `generate-report` | Generate weekly price report |
 
 ---
 
@@ -482,8 +640,9 @@ Price Tracker/
 │   ├── __init__.py
 │   ├── models.py          # SQLAlchemy ORM models
 │   └── connection.py      # Database session management
-├── alerts/                # Email/Slack alerts (Phase 4)
-│   └── __init__.py
+├── alerts/                # ✅ Email/Slack alerts (Phase 4)
+│   ├── __init__.py
+│   └── alert_manager.py   # Alert detection and notifications
 ├── reports/               # Weekly report generation (Phase 5)
 │   └── __init__.py
 ├── scheduler/             # ✅ APScheduler jobs (Phase 3)
@@ -513,7 +672,8 @@ Price Tracker/
 ├── README.md              # ✅ This file
 ├── PHASE1_SUMMARY.md      # ✅ Detailed Phase 1 documentation
 ├── PHASE2_SUMMARY.md      # ✅ Detailed Phase 2 documentation
-└── PHASE3_SUMMARY.md      # ✅ Detailed Phase 3 documentation
+├── PHASE3_SUMMARY.md      # ✅ Detailed Phase 3 documentation
+└── PHASE4_SUMMARY.md      # ✅ Detailed Phase 4 documentation
 ```
 
 ---
@@ -757,17 +917,17 @@ pip install pytest pytest-cov
 
 ---
 
-## 📚 Next Steps: Phase 4
+## 📚 Next Steps: Phase 5
 
-Phase 3 is complete! Next up:
+Phase 4 is complete! Next up:
 
-1. **Alert Manager** - Detect price drops below thresholds
-2. **Email Notifications** - Send alerts via SMTP
-3. **Slack Integration** - Post alerts to Slack webhook
-4. **Alert History** - Track sent alerts in database
-5. **Alert Configuration** - CLI commands for threshold management
+1. **Weekly Report Generator** - Generate comprehensive price reports
+2. **Email Reports** - Send weekly summaries via email
+3. **Price Charts** - Generate visualizations of price trends
+4. **Statistics** - Best deals, average prices, trend analysis
+5. **Report Scheduling** - Automatic weekly report generation
 
-**Phase 4 will make the system truly useful** by notifying you automatically when prices drop!
+**Phase 5 will add comprehensive reporting** with price history visualizations!
 
 ---
 
@@ -797,5 +957,5 @@ Personal project - all rights reserved.
 
 ---
 
-**Phase 1 ✅ Phase 2 ✅ Phase 3 Complete! 🚀**  
-_Automated price tracking system with background scheduling ready for Phase 4 (Alerts)_
+**Phase 1 ✅ Phase 2 ✅ Phase 3 ✅ Phase 4 Complete! 🚀**  
+_Automated price tracking with email/Slack alerts - Ready for Phase 5 (Weekly Reports)_

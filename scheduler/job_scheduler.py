@@ -40,6 +40,7 @@ from pytz import timezone as pytz_timezone
 
 from database.connection import get_session
 from scrapers.orchestrator import ScraperOrchestrator
+from alerts.alert_manager import AlertManager
 from utils.logging_config import get_logger
 
 
@@ -176,6 +177,16 @@ class PriceTrackerScheduler:
                 )
                 
                 results = orchestrator.run_all_scrapers()
+                
+                # Check for price drop alerts after scraping
+                logger.info("Checking for price drop alerts...")
+                alert_manager = AlertManager(self.config, session)
+                alert_results = alert_manager.check_and_send_alerts()
+                
+                logger.info(
+                    f"Alerts: {alert_results.get('alerts_sent', 0)} sent, "
+                    f"{alert_results.get('errors', 0)} errors"
+                )
             
             duration = (datetime.now() - start_time).total_seconds()
             

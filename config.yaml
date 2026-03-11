@@ -119,34 +119,28 @@ scheduling:
 # ALERTING
 # ============================================================================
 alerts:
-  # Email settings (credentials in .env file)
+  enabled: true # Master switch for all alerts
+  cooldown_hours: 24 # Prevent duplicate alerts for same product within 24 hours
+  
+  # Email settings
   email:
     enabled: true
-    recipients:
-      - "your-email@example.com"
-    # Add multiple recipients for different alert types
-    # high_priority: ["urgent@example.com"]
-    # low_priority: ["digest@example.com"]
-
-    # Alert cooldown (prevent spam)
-    cooldown_hours: 6 # Don't send duplicate alert for same product within 6 hours
-
-    # Email server settings (non-sensitive parts)
     smtp_server: "smtp.gmail.com"
     smtp_port: 587
-    use_tls: true
-    from_name: "Price Tracker Bot"
+    # Credentials loaded from .env: EMAIL_USERNAME, EMAIL_PASSWORD
+    # from_email: defaults to EMAIL_FROM from .env
+    to_emails:
+      - "your-email@example.com" # Replace with your actual email
+    # Add multiple recipients:
+    # - "person1@example.com"
+    # - "person2@example.com"
 
-  # Slack settings (webhook URL in .env file)
+  # Slack settings
   slack:
-    enabled: false # Set to true when configured
+    enabled: false # Set to true when Slack webhook is configured
+    # webhook_url loaded from .env: SLACK_WEBHOOK_URL
     channel: "#price-alerts"
-    username: "Price Tracker"
-    icon_emoji: ":money_with_wings:"
-
-    # Alert formatting
-    mention_on_big_drop: true # @channel for drops >20%
-    big_drop_threshold: 20
+    username: "Price Tracker Bot"
 
   # Alert conditions (global defaults, can override per product)
   conditions:

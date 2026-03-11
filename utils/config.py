@@ -156,13 +156,14 @@ def _inject_env_vars(config: Dict[str, Any]) -> None:
     # Email credentials
     if 'alerts' in config and 'email' in config['alerts']:
         email_config = config['alerts']['email']
-        email_config['username'] = os.getenv('EMAIL_USERNAME', email_config.get('username',''))
-        email_config['password'] = os.getenv('EMAIL_PASSWORD', email_config.get('password', ''))
+        email_config['smtp_username'] = os.getenv('EMAIL_USERNAME', '')
+        email_config['smtp_password'] = os.getenv('EMAIL_PASSWORD', '')
+        email_config['from_email'] = os.getenv('EMAIL_FROM', email_config['smtp_username'])
     
     # Slack webhook
     if 'alerts' in config and 'slack' in config['alerts']:
         slack_config = config['alerts']['slack']
-        slack_config['webhook_url'] = os.getenv('SLACK_WEBHOOK_URL', slack_config.get('webhook_url', ''))
+        slack_config['webhook_url'] = os.getenv('SLACK_WEBHOOK_URL', '')
     
     logger.debug("Injected environment variables into configuration")
 
