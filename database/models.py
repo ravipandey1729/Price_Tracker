@@ -13,9 +13,6 @@ Tables:
 """
 
 from datetime import datetime
-from typing import Optional
-from decimal import Decimal
-
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, 
     Boolean, ForeignKey, Text, Enum, Index
@@ -47,6 +44,14 @@ class AlertType(enum.Enum):
     COMPETITOR_BEAT = "competitor_beat"
 
 
+class NotificationType(enum.Enum):
+    """Type of in-app notification"""
+    INFO = "info"
+    PRICE_DROP = "price_drop"
+    TARGET_HIT = "target_hit"
+    SYSTEM = "system"
+
+
 # ============================================================================
 # MODELS
 # ============================================================================
@@ -61,10 +66,15 @@ class Product(Base):
     __tablename__ = "products"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     product_id = Column(String(50), unique=True, nullable=False, index=True)  # e.g., "prod_001"
     name = Column(String(500), nullable=False)
     sku = Column(String(100))  # Stock Keeping Unit / Model number
     category = Column(String(100))
+    amazon_url = Column(Text)
+    ebay_url = Column(Text)
+    walmart_url = Column(Text)
+    flipkart_url = Column(Text)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -74,6 +84,7 @@ class Product(Base):
     prices = relationship("Price", back_populates="product", cascade="all, delete-orphan")
     thresholds = relationship("Threshold", back_populates="product", cascade="all, delete-orphan")
     alerts = relationship("AlertSent", back_populates="product", cascade="all, delete-orphan")
+    owner = relationship("User", back_populates="products")
     
     def __repr__(self):
         return f"<Product(id={self.product_id}, name='{self.name}')>"
@@ -135,6 +146,7 @@ class ScraperRun(Base):
     __tablename__ = "scraper_runs"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     site_name = Column(String(100), nullable=False)
     status = Column(Enum(ScraperStatus), default=ScraperStatus.RUNNING, nullable=False)
     
@@ -154,6 +166,7 @@ class ScraperRun(Base):
     
     # Relationships
     prices = relationship("Price", back_populates="scraper_run")
+    user = relationship("User")
     
     def __repr__(self):
         return f"<ScraperRun(id={self.id}, site='{self.site_name}', status={self.status.value})>"
@@ -169,6 +182,7 @@ class AlertSent(Base):
     __tablename__ = "alerts_sent"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     
     # Alert details
@@ -191,6 +205,7 @@ class AlertSent(Base):
     
     # Relationships
     product = relationship("Product", back_populates="alerts")
+    user = relationship("User", back_populates="alerts")
     
     # Index for fast cooldown checks
     __table_args__ = (
@@ -213,6 +228,7 @@ class Threshold(Base):
     __tablename__ = "thresholds"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     
     # Threshold settings
@@ -232,9 +248,52 @@ class Threshold(Base):
     
     # Relationships
     product = relationship("Product", back_populates="thresholds")
+    user = relationship("User", back_populates="thresholds")
     
     def __repr__(self):
         return f"<Threshold(product_id={self.product_id}, target={self.target_price}, drop={self.percentage_drop}%)>"
+
+
+class User(Base):
+    """User account model for website authentication and ownership."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    full_name = Column(String(255))
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    products = relationship("Product", back_populates="owner")
+    thresholds = relationship("Threshold", back_populates="user")
+    alerts = relationship("AlertSent", back_populates="user")
+    notifications = relationship("NotificationRecord", back_populates="user", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<User(id={self.id}, email='{self.email}')>"
+
+
+class NotificationRecord(Base):
+    """In-app notification history for user-facing real-time alert center."""
+    __tablename__ = "notification_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    notification_type = Column(Enum(NotificationType), nullable=False, default=NotificationType.INFO)
+    is_read = Column(Boolean, default=False, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    read_at = Column(DateTime)
+
+    user = relationship("User", back_populates="notifications")
+    product = relationship("Product")
+
+    def __repr__(self):
+        return f"<NotificationRecord(user_id={self.user_id}, type={self.notification_type.value})>"
 
 
 # ============================================================================

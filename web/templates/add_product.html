@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Add Product - Price Tracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Track a New Product</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Enter product details and URLs from different sites to compare prices</p>
+                    
+                    <form id="addProductForm">
+                        <!-- Product Name -->
+                        <div class="mb-3">
+                            <label for="productName" class="form-label">Product Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="productName" required 
+                                   placeholder="e.g., Sony WH-1000XM5 Headphones">
+                            <div class="form-text">Enter the full product name</div>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category">
+                                <option value="Electronics">Electronics</option>
+                                <option value="Gaming">Gaming</option>
+                                <option value="Home">Home & Garden</option>
+                                <option value="Kitchen">Kitchen</option>
+                                <option value="Fashion">Fashion</option>
+                                <option value="Sports">Sports & Fitness</option>
+                                <option value="Books">Books & Media</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- SKU/Model (Optional) -->
+                        <div class="mb-3">
+                            <label for="sku" class="form-label">Model/SKU (Optional)</label>
+                            <input type="text" class="form-control" id="sku" 
+                                   placeholder="e.g., WH1000XM5">
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h5 class="mb-3">Product URLs</h5>
+                        <p class="text-muted small">Add at least one product URL to start tracking prices</p>
+
+                        <!-- Amazon URL -->
+                        <div class="mb-3">
+                            <label for="amazonUrl" class="form-label">
+                                <i class="bi bi-shop"></i> Amazon URL
+                            </label>
+                            <input type="url" class="form-control" id="amazonUrl" 
+                                   placeholder="https://www.amazon.com/dp/ASINCODE">
+                            <div class="form-text">Example: https://www.amazon.com/dp/B09XS7JWHH</div>
+                        </div>
+
+                        <!-- eBay URL -->
+                        <div class="mb-3">
+                            <label for="ebayUrl" class="form-label">
+                                <i class="bi bi-shop"></i> eBay URL
+                            </label>
+                            <input type="url" class="form-control" id="ebayUrl" 
+                                   placeholder="https://www.ebay.com/itm/ITEMID">
+                            <div class="form-text">Example: https://www.ebay.com/itm/123456789</div>
+                        </div>
+
+                        <!-- Walmart URL -->
+                        <div class="mb-3">
+                            <label for="walmartUrl" class="form-label">
+                                <i class="bi bi-shop"></i> Walmart URL (Coming Soon)
+                            </label>
+                            <input type="url" class="form-control" id="walmartUrl" disabled
+                                   placeholder="https://www.walmart.com/ip/...">
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h5 class="mb-3">Price Alert Settings (Optional)</h5>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="percentageDrop" class="form-label">Alert on % Drop</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="percentageDrop" 
+                                           min="0" max="100" step="1" value="10">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="targetPrice" class="form-label">Target Price</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="targetPrice" 
+                                           min="0" step="0.01" placeholder="299.99">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="button" class="btn btn-secondary" onclick="window.location.href='/products'">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="bi bi-plus-circle"></i> Add & Scrape Now
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Tips -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-lightbulb"></i> Quick Tips</h6>
+                    <ul class="small mb-0">
+                        <li>Copy the full product URL from Amazon or eBay</li>
+                        <li>At least one URL is required to track prices</li>
+                        <li>After adding, prices will be scraped immediately</li>
+                        <li>You can add more URLs later from the product details page</li>
+                        <li>Set alerts to get notified when prices drop</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding...';
+    
+    // Collect form data
+    const productName = document.getElementById('productName').value.trim();
+    const category = document.getElementById('category').value;
+    const sku = document.getElementById('sku').value.trim();
+    const amazonUrl = document.getElementById('amazonUrl').value.trim();
+    const ebayUrl = document.getElementById('ebayUrl').value.trim();
+    const percentageDrop = document.getElementById('percentageDrop').value;
+    const targetPrice = document.getElementById('targetPrice').value;
+    
+    // Validate at least one URL
+    if (!amazonUrl && !ebayUrl) {
+        showNotification('Please provide at least one product URL', 'warning');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        return;
+    }
+    
+    // Build URLs object
+    const urls = {};
+    if (amazonUrl) urls.Amazon = amazonUrl;
+    if (ebayUrl) urls.eBay = ebayUrl;
+    
+    // Build product data
+    const productData = {
+        name: productName,
+        category: category,
+        sku: sku || productName.replace(/\s+/g, '').substring(0, 20).toUpperCase(),
+        urls: urls,
+        alert_threshold: {
+            percentage_drop: parseInt(percentageDrop) || null,
+            target_price: parseFloat(targetPrice) || null
+        }
+    };
+    
+    try {
+        // Add product
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding product...';
+        const response = await apiRequest('/api/products/add', {
+            method: 'POST',
+            body: JSON.stringify(productData)
+        });
+        
+        if (response.success) {
+            const productId = response.product_id;
+            showNotification('Product added! Now scraping prices...', 'info');
+            
+            // Trigger immediate scrape
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scraping prices...';
+            await apiRequest(`/api/scraping/product/${productId}`, {
+                method: 'POST'
+            });
+            
+            showNotification('Product added and scraped successfully!', 'success');
+            
+            // Redirect to products page after 1 second
+            setTimeout(() => {
+                window.location.href = '/products';
+            }, 1000);
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'danger');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+</script>
+{% endblock %}

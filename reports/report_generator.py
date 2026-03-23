@@ -272,8 +272,8 @@ class ReportGenerator:
             runs = (
                 self.session.query(ScraperRun)
                 .filter(
-                    ScraperRun.started_at >= start_date,
-                    ScraperRun.started_at <= end_date
+                    ScraperRun.start_time >= start_date,
+                    ScraperRun.start_time <= end_date
                 )
                 .all()
             )
@@ -288,16 +288,16 @@ class ReportGenerator:
                     'avg_duration': 0
                 }
             
-            successful_runs = [r for r in runs if r.status == 'completed']
-            failed_runs = [r for r in runs if r.status == 'failed']
+            successful_runs = [r for r in runs if r.status.value == 'completed']
+            failed_runs = [r for r in runs if r.status.value == 'failed']
             
-            total_products = sum(r.products_scraped for r in successful_runs)
+            total_products = sum(r.products_succeeded for r in successful_runs)
             
             # Calculate average duration (in seconds)
             durations = [
-                (r.completed_at - r.started_at).total_seconds() 
+                (r.end_time - r.start_time).total_seconds() 
                 for r in successful_runs 
-                if r.completed_at
+                if r.end_time
             ]
             avg_duration = sum(durations) / len(durations) if durations else 0
             

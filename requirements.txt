@@ -30,6 +30,14 @@ jinja2>=3.1.2             # Template engine for HTML reports
 matplotlib>=3.8.0         # Create charts and graphs
 pillow>=10.1.0            # Image processing (for chart optimization)
 
+# Web Dashboard
+fastapi>=0.109.0          # Modern web framework for API
+uvicorn[standard]>=0.27.0 # ASGI server for FastAPI
+python-multipart>=0.0.6   # Form parsing for FastAPI
+python-jose[cryptography]>=3.3.0  # JWT token signing/validation
+passlib[bcrypt]>=1.7.4    # Password hashing for user auth
+email-validator>=2.1.0    # Pydantic EmailStr validation
+
 # Testing
 pytest>=7.4.0             # Testing framework
 pytest-cov>=4.1.0         # Code coverage plugin

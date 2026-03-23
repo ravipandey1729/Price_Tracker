@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Price Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="display-5">
+            <i class="bi bi-speedometer2"></i> Price Tracker Dashboard
+        </h1>
+        <p class="lead text-muted">Compare prices across sites and never overpay</p>
+    </div>
+    <div class="col-md-4 text-end d-flex align-items-center justify-content-end gap-2">
+        <a href="/products/add" class="btn btn-success btn-lg">
+            <i class="bi bi-plus-circle"></i> Add Product
+        </a>
+        <button class="btn btn-primary btn-lg" onclick="scrapeNow()">
+            <i class="bi bi-arrow-clockwise"></i> Update Prices
+        </button>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Products Tracked</h6>
+                        <h2 class="card-title mb-0">{{ total_products }}</h2>
+                    </div>
+                    <div class="fs-1 text-primary">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Price Records</h6>
+                        <h2 class="card-title mb-0">{{ total_prices }}</h2>
+                    </div>
+                    <div class="fs-1 text-success">
+                        <i class="bi bi-database"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Success Rate</h6>
+                        <h2 class="card-title mb-0">{{ "%.1f"|format(success_rate) }}%</h2>
+                    </div>
+                    <div class="fs-1 text-info">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Recent Scrapes</h6>
+                        <h2 class="card-title mb-0">{{ recent_runs|length }}</h2>
+                    </div>
+                    <div class="fs-1 text-warning">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row g-4">
+    <!-- Recent Prices -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-tag"></i> Recent Prices (Last 24h)</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_prices %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Site</th>
+                                <th>Price</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for price in recent_prices %}
+                            <tr>
+                                <td>
+                                    <small>{{ price.product.name[:30] }}{% if price.product.name|length > 30 %}...{% endif %}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ price.source_site }}</span>
+                                </td>
+                                <td class="fw-bold">
+                                    {{ price.currency }} {{ "%.2f"|format(price.price) }}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ price.scraped_at.strftime('%H:%M') }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    No prices in the last 24 hours
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Scraper Runs -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-arrow-repeat"></i> Scraper Activity</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_runs %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Site</th>
+                                <th>Status</th>
+                                <th>Products</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for run in recent_runs %}
+                            <tr>
+                                <td>
+                                    <strong>{{ run.site_name }}</strong>
+                                </td>
+                                <td>
+                                    {% if run.status.value == 'completed' %}
+                                    <span class="badge bg-success">Success</span>
+                                    {% elif run.status.value == 'failed' %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{{ run.status.value }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ run.products_succeeded }}/{{ run.products_attempted }}</small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ run.start_time.strftime('%m/%d %H:%M') }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    No scraper runs yet
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <a href="/products" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-box-seam"></i> View Products
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/thresholds" class="btn btn-outline-success w-100">
+                            <i class="bi bi-bell"></i> Manage Alerts
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-info w-100" onclick="viewHealth()">
+                            <i class="bi bi-heart-pulse"></i> System Health
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/api/docs" class="btn btn-outline-secondary w-100" target="_blank">
+                            <i class="bi bi-code-square"></i> API Documentation
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function scrapeNow() {
+    if (confirm('Start scraping all products now?')) {
+        const btn = event.target.closest('button');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Scraping...';
+        
+        fetch('/api/scraping/now', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert('Scraping started! Check the activity panel for updates.');
+                setTimeout(() => location.reload(), 2000);
+            })
+            .catch(error => {
+                alert('Error starting scrape: ' + error);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Scrape Now';
+            });
+    }
+}
+
+function viewHealth() {
+    window.open('/api/system/health', '_blank');
+}
+
+// Auto-refresh dashboard every 30 seconds
+setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}

@@ -44,6 +44,9 @@ from scrapers.scraper_factory import get_available_sites
 from scheduler.daemon_manager import SchedulerDaemon
 from alerts.alert_manager import AlertManager
 from reports.report_generator import ReportGenerator
+from utils.config_validator import validate_config, validate_env_vars, print_validation_report
+from utils.db_maintenance import DatabaseMaintenance
+from utils.health_check import HealthChecker
 from database.models import Product, Threshold
 
 
@@ -380,10 +383,237 @@ def cmd_generate_report(args):
         sys.exit(1)
 
 
+def cmd_validate_config(args):
+    """Validate configuration file"""
+    log_section_separator(logger, "Validating Configuration")
+    
+    try:
+        config = load_config()
+        errors = validate_config(config)
+        warnings = validate_env_vars(config)
+        
+        print_validation_report(errors, warnings)
+        
+        if errors:
+            sys.exit(1)
+    except Exception as e:
+        logger.error(f"✗ Configuration validation failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_db_cleanup(args):
+    """Clean up old database records"""
+    log_section_separator(logger, "Database Cleanup")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        with get_session() as session:
+            maintenance = DatabaseMaintenance(config, session)
+            
+            days = args.days if hasattr(args, 'days') and args.days else None
+            
+            logger.info(f"Cleaning records older than {days or 'configured'} days...")
+            results = maintenance.cleanup_old_data(days)
+            
+            logger.info("\n✓ Cleanup complete!")
+            logger.info(f"  Prices deleted: {results['prices_deleted']}")
+            logger.info(f"  Scraper runs deleted: {results['runs_deleted']}")
+            logger.info(f"  Alerts deleted: {results['alerts_deleted']}")
+            logger.info(f"  Total records deleted: {results['total_deleted']}")
+    
+    except Exception as e:
+        logger.error(f"✗ Cleanup failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_db_vacuum(args):
+    """Vacuum database to reclaim space"""
+    log_section_separator(logger, "Database Vacuum")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        with get_session() as session:
+            maintenance = DatabaseMaintenance(config, session)
+            
+            logger.info("Running VACUUM command...")
+            results = maintenance.vacuum_database()
+            
+            logger.info("\n✓ Vacuum complete!")
+            logger.info(f"  Size before: {maintenance._format_bytes(results['size_before'])}")
+            logger.info(f"  Size after: {maintenance._format_bytes(results['size_after'])}")
+            logger.info(f"  Space freed: {maintenance._format_bytes(results['space_freed'])}")
+            logger.info(f"  Reduction: {results['reduction_percent']:.2f}%")
+    
+    except Exception as e:
+        logger.error(f"✗ Vacuum failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_db_backup(args):
+    """Create database backup"""
+    log_section_separator(logger, "Database Backup")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        with get_session() as session:
+            maintenance = DatabaseMaintenance(config, session)
+            
+            backup_dir = args.dir if hasattr(args, 'dir') and args.dir else None
+            
+            logger.info("Creating backup...")
+            backup_path = maintenance.backup_database(backup_dir)
+            
+            logger.info(f"\n✓ Backup created: {backup_path}")
+    
+    except Exception as e:
+        logger.error(f"✗ Backup failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_db_stats(args):
+    """Show database statistics"""
+    log_section_separator(logger, "Database Statistics")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        with get_session() as session:
+            maintenance = DatabaseMaintenance(config, session)
+            
+            stats = maintenance.get_database_stats()
+            
+            logger.info("\nDatabase Statistics:")
+            logger.info(f"  File Size: {stats['file_size_formatted']}")
+            logger.info(f"  \nTable Counts:")
+            logger.info(f"    Products: {stats['products']}")
+            logger.info(f"    Prices: {stats['prices']}")
+            logger.info(f"    Scraper Runs: {stats['scraper_runs']}")
+            logger.info(f"    Thresholds: {stats['thresholds']}")
+            logger.info(f"    Alerts Sent: {stats['alerts_sent']}")
+            logger.info(f"    Total Records: {stats['total_records']}")
+            
+            if stats['oldest_price_date']:
+                logger.info(f"  \nData Range:")
+                logger.info(f"    Oldest: {stats['oldest_price_date']}")
+                logger.info(f"    Newest: {stats['newest_price_date']}")
+                logger.info(f"    Span: {stats['data_span_days']} days")
+                logger.info(f"    Avg Prices/Product: {stats['avg_prices_per_product']:.1f}")
+    
+    except Exception as e:
+        logger.error(f"✗ Stats failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_db_optimize(args):
+    """Run full database optimization"""
+    log_section_separator(logger, "Database Optimization")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        with get_session() as session:
+            maintenance = DatabaseMaintenance(config, session)
+            results = maintenance.optimize_database()
+            
+            logger.info("\n" + "="*70)
+            logger.info("✓ OPTIMIZATION COMPLETE")
+            logger.info("="*70)
+            logger.info(f"Records deleted: {results['cleanup']['total_deleted']}")
+            logger.info(f"Space freed: {maintenance._format_bytes(results['vacuum']['space_freed'])}")
+            logger.info(f"Integrity check: {'✓ PASSED' if results['integrity']['is_ok'] else '✗ FAILED'}")
+            logger.info(f"Final size: {results['stats']['file_size_formatted']}")
+    
+    except Exception as e:
+        logger.error(f"✗ Optimization failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+def cmd_health_check(args):
+    """Run system health check"""
+    log_section_separator(logger, "System Health Check")
+    
+    if not database_exists():
+        logger.error("Database not initialized. Run 'python main.py init' first.")
+        return
+    
+    try:
+        config = load_config()
+        
+        with get_session() as session:
+            checker = HealthChecker(config, session)
+            health = checker.run_all_checks()
+            
+            # Print summary
+            status_symbols = {
+                'healthy': '✓',
+                'degraded': '⚠',
+                'unhealthy': '✗'
+            }
+            symbol = status_symbols.get(health['status'], '?')
+            
+            logger.info(f"\n{symbol} Overall Status: {health['status'].upper()}")
+            logger.info(f"  Checks passed: {health['passed']}/{health['total_checks']}")
+            
+            if health['warnings']:
+                logger.info(f"\n⚠️  Warnings ({len(health['warnings'])}):")
+                for warning in health['warnings']:
+                    logger.info(f"    {warning}")
+            
+            if health['errors']:
+                logger.info(f"\n✗ Errors ({len(health['errors'])}):")
+                for error in health['errors']:
+                    logger.info(f"    {error}")
+            
+            # Print detailed results if verbose
+            if hasattr(args, 'verbose') and args.verbose:
+                logger.info("\n" + "="*70)
+                logger.info("DETAILED RESULTS")
+                logger.info("="*70)
+                
+                for check in health['checks']:
+                    status_symbol = {'ok': '✓', 'warning': '⚠', 'error': '✗'}[check['status']]
+                    logger.info(f"\n{status_symbol} {check['name']}: {check['message']}")
+                    
+                    if check['details']:
+                        for key, value in check['details'].items():
+                            logger.info(f"    {key}: {value}")
+            
+            # Exit with error if unhealthy
+            if health['status'] == 'unhealthy':
+                sys.exit(1)
+    
+    except Exception as e:
+        logger.error(f"✗ Health check failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
 def cmd_version(args):
     """Show version information"""
-    print("Price Tracker v0.5.0 (Phase 5: Weekly Reports)")
-    print("Features: Database, Logging, Configuration, Web Scraping, Automated Scheduling, Alerts, Weekly Reports")
+    print("Price Tracker v0.6.0 (Phase 6: Refinements & Polish)")
+    print("Features: Database, Logging, Configuration, Web Scraping, Automated Scheduling, Alerts, Weekly Reports, Maintenance & Monitoring")
 
 
 def cmd_scrape_now(args):
@@ -702,7 +932,7 @@ def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(
         description="Price Tracker - Monitor competitor prices automatically",
-        epilog="Available commands: init, test-db, test-logging, scrape-now, scrape-site, start, stop, restart, status, list-jobs, add-threshold, list-thresholds, remove-threshold, test-alerts, generate-report"
+        epilog="Available commands: init, test-db, test-logging, scrape-now, scrape-site, start, stop, restart, status, list-jobs, add-threshold, list-thresholds, remove-threshold, test-alerts, generate-report, validate-config, health-check, db-cleanup, db-vacuum, db-backup, db-stats, db-optimize"
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -784,6 +1014,37 @@ def main():
     parser_generate_report = subparsers.add_parser('generate-report', help='Generate and send weekly price report')
     parser_generate_report.add_argument('--no-email', dest='send_email', action='store_false', default=True, help='Generate report without sending email')
     parser_generate_report.set_defaults(func=cmd_generate_report)
+    
+    # Validate config command
+    parser_validate_config = subparsers.add_parser('validate-config', help='Validate configuration file')
+    parser_validate_config.set_defaults(func=cmd_validate_config)
+    
+    # Health check command
+    parser_health_check = subparsers.add_parser('health-check', help='Run system health check')
+    parser_health_check.add_argument('--verbose', '-v', action='store_true', help='Show detailed check results')
+    parser_health_check.set_defaults(func=cmd_health_check)
+    
+    # Database cleanup command
+    parser_db_cleanup = subparsers.add_parser('db-cleanup', help='Clean up old database records')
+    parser_db_cleanup.add_argument('--days', type=int, help='Delete records older than N days (default: from config)')
+    parser_db_cleanup.set_defaults(func=cmd_db_cleanup)
+    
+    # Database vacuum command
+    parser_db_vacuum = subparsers.add_parser('db-vacuum', help='Vacuum database to reclaim space')
+    parser_db_vacuum.set_defaults(func=cmd_db_vacuum)
+    
+    # Database backup command
+    parser_db_backup = subparsers.add_parser('db-backup', help='Create database backup')
+    parser_db_backup.add_argument('--dir', help='Backup directory (default: backups/)')
+    parser_db_backup.set_defaults(func=cmd_db_backup)
+    
+    # Database stats command
+    parser_db_stats = subparsers.add_parser('db-stats', help='Show database statistics')
+    parser_db_stats.set_defaults(func=cmd_db_stats)
+    
+    # Database optimize command
+    parser_db_optimize = subparsers.add_parser('db-optimize', help='Run full database optimization')
+    parser_db_optimize.set_defaults(func=cmd_db_optimize)
     
     # Version command
     parser_version = subparsers.add_parser('version', help='Show version')

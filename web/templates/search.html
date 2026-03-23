@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Search Products - Price Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="display-6"><i class="bi bi-search"></i> Search & Compare Products</h1>
+        <p class="text-muted">Search on multiple sites, compare prices, and start tracking with alerts.</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="search-form" class="row g-3">
+            <div class="col-md-7">
+                <label for="query" class="form-label">What are you looking for?</label>
+                <input type="text" id="query" class="form-control" placeholder="e.g. iPhone 15 Pro, Sony WH-1000XM5" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sites</label>
+                <div class="d-flex gap-3 mt-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="site-amazon" checked>
+                        <label class="form-check-label" for="site-amazon">Amazon</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="site-ebay" checked>
+                        <label class="form-check-label" for="site-ebay">eBay</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit" id="search-btn">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="search-summary" class="alert alert-light d-none"></div>
+<div id="results-container"></div>
+
+<div class="modal fade" id="trackModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Track This Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Product Name</label>
+                    <input type="text" id="track-name" class="form-control">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Target Price (optional)</label>
+                        <input type="number" id="track-target" class="form-control" step="0.01">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">% Drop Alert (optional)</label>
+                        <input type="number" id="track-drop" class="form-control" step="0.1">
+                    </div>
+                </div>
+                <input type="hidden" id="track-site">
+                <input type="hidden" id="track-url">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-track-btn">Track Product</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let trackModal;
+
+function selectedSites() {
+    const sites = [];
+    if (document.getElementById('site-amazon').checked) sites.push('Amazon');
+    if (document.getElementById('site-ebay').checked) sites.push('eBay');
+    return sites;
+}
+
+function renderResults(data) {
+    const container = document.getElementById('results-container');
+    const summary = document.getElementById('search-summary');
+
+    const total = Object.values(data.results || {}).reduce((acc, arr) => acc + arr.length, 0);
+    summary.classList.remove('d-none');
+    summary.innerHTML = `<strong>${total}</strong> results for <strong>${data.query}</strong>. Compare prices and track products below.`;
+
+    if (!total) {
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                No results found from live marketplace search. Try a different keyword,
+                or add a direct product URL manually.
+                <div class="mt-2">
+                    <a href="/products/add" class="btn btn-sm btn-outline-primary">Add Product by URL</a>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+
+    for (const [site, items] of Object.entries(data.results || {})) {
+        html += `
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between">
+                    <strong>${site}</strong>
+                    <span class="badge bg-secondary">${items.length} result(s)</span>
+                </div>
+                <div class="list-group list-group-flush">
+        `;
+
+        for (const item of items) {
+            const priceText = item.price != null ? PriceTracker.formatCurrency(item.price, item.currency || 'USD') : 'N/A';
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">${item.title}</div>
+                            <div class="small text-muted">${priceText}</div>
+                            <a href="${item.url}" target="_blank" class="small">Open listing</a>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick='openTrackModal(${JSON.stringify(item.title)}, ${JSON.stringify(site)}, ${JSON.stringify(item.url)})'>
+                            <i class="bi bi-plus-circle"></i> Track
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `</div></div>`;
+    }
+
+    const errorEntries = Object.entries(data.errors || {}).filter(([, msg]) => msg);
+    if (errorEntries.length) {
+        html += '<div class="alert alert-info"><strong>Some sites had issues:</strong><ul class="mb-0">';
+        for (const [site, msg] of errorEntries) {
+            html += `<li>${site}: ${msg}</li>`;
+        }
+        html += '</ul></div>';
+    }
+
+    container.innerHTML = html;
+}
+
+function openTrackModal(name, site, url) {
+    document.getElementById('track-name').value = name;
+    document.getElementById('track-site').value = site;
+    document.getElementById('track-url').value = url;
+    document.getElementById('track-target').value = '';
+    document.getElementById('track-drop').value = '';
+    trackModal.show();
+}
+
+async function trackSelectedProduct() {
+    const btn = document.getElementById('confirm-track-btn');
+    showLoading(btn);
+
+    const site = document.getElementById('track-site').value;
+    const url = document.getElementById('track-url').value;
+    const name = document.getElementById('track-name').value.trim();
+    const targetPriceValue = document.getElementById('track-target').value;
+    const percentageDropValue = document.getElementById('track-drop').value;
+
+    try {
+        const payload = {
+            name,
+            category: 'Search',
+            sku: name.replace(/\s+/g, '').slice(0, 30).toUpperCase(),
+            urls: { [site]: url },
+            target_price: targetPriceValue ? parseFloat(targetPriceValue) : null,
+            percentage_drop: percentageDropValue ? parseFloat(percentageDropValue) : null
+        };
+
+        const result = await PriceTracker.apiRequest('/products/track-from-search', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        PriceTracker.showNotification(`Now tracking: ${result.product_name}`, 'success');
+        trackModal.hide();
+        setTimeout(() => { window.location.href = '/products'; }, 900);
+    } catch (error) {
+        PriceTracker.showNotification(error.message || 'Failed to track product', 'danger');
+    } finally {
+        hideLoading(btn);
+    }
+}
+
+document.getElementById('search-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const query = document.getElementById('query').value.trim();
+    const sites = selectedSites();
+    if (!query) return;
+    if (!sites.length) {
+        PriceTracker.showNotification('Select at least one site', 'warning');
+        return;
+    }
+
+    const searchBtn = document.getElementById('search-btn');
+    showLoading(searchBtn);
+
+    try {
+        const data = await PriceTracker.apiRequest('/products/search', {
+            method: 'POST',
+            body: JSON.stringify({ query, sites, max_results_per_site: 5 })
+        });
+        renderResults(data);
+    } catch (error) {
+        PriceTracker.showNotification(error.message || 'Search failed', 'danger');
+    } finally {
+        hideLoading(searchBtn);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    trackModal = new bootstrap.Modal(document.getElementById('trackModal'));
+    document.getElementById('confirm-track-btn').addEventListener('click', trackSelectedProduct);
+});
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-# Price Tracker - Phase 5 Complete! 🎉
+# Price Tracker - Phase 6 Complete! 🎉
 
 A Python-based automated price tracking system that monitors competitor prices from multiple e-commerce sites, runs continuously in the background, sends email and Slack alerts when prices drop, stores historical data, and generates beautiful weekly reports with charts.
 
@@ -9,7 +9,7 @@ A Python-based automated price tracking system that monitors competitor prices f
 **✅ Phase 3: Job Scheduling Complete** _(Automatic 4-hour intervals, background daemon)_  
 **✅ Phase 4: Email & Slack Alerts Complete** _(Price drop notifications, threshold management)_  
 **✅ Phase 5: Weekly Reports Complete** _(Price history charts, statistics, email reports)_  
-**⏳ Phase 6: Refinements & Polish** _(Coming next)_
+**✅ Phase 6: Refinements & Polish Complete** _(Maintenance tools, health monitoring, validation)_
 
 ### What's Been Built
 
@@ -53,6 +53,12 @@ A Python-based automated price tracking system that monitors competitor prices f
 | Statistics Engine    | ✅ Complete | Min/max/avg prices, trends, savings calculation        |
 | Weekly Scheduling    | ✅ Complete | Automatic report generation on configured day/time     |
 | Report CLI           | ✅ Complete | Command: generate-report with --no-email flag          |
+| **Phase 6**          |             |                                                        |
+| Config Validator     | ✅ Complete | Pre-runtime validation of config.yaml and .env        |
+| DB Maintenance       | ✅ Complete | Cleanup, vacuum, backup, statistics, optimization      |
+| Health Monitoring    | ✅ Complete | 7 comprehensive system health checks                   |
+| Bug Fixes            | ✅ Complete | ScraperRun attribute naming consistency                |
+| Maintenance CLI      | ✅ Complete | 9 new commands for system maintenance                  |
 
 ---
 
@@ -805,6 +811,19 @@ pytest tests/ --cov=. --cov-report=html
 | --------------------------- | ---------------------------------------------- |
 | `generate-report`           | Generate and send weekly price report          |
 | `generate-report --no-email`| Generate report without sending email (preview)|
+
+### Phase 6 Commands
+
+| Command                         | Description                                    |
+| ------------------------------- | ---------------------------------------------- |
+| `validate-config`               | Validate configuration file                    |
+| `health-check`                  | Run comprehensive system health checks         |
+| `health-check --verbose`        | Show detailed health check results             |
+| `db-stats`                      | Show database statistics                       |
+| `db-cleanup --days N`           | Delete records older than N days (default: 90) |
+| `db-vacuum`                     | Vacuum database to reclaim space               |
+| `db-backup --dir <path>`        | Create timestamped database backup             |
+| `db-optimize --days N`          | Full optimization (cleanup + vacuum + stats)   |
 
 ---
 

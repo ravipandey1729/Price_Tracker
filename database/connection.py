@@ -20,7 +20,7 @@ import os
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
@@ -90,9 +90,48 @@ def init_engine(database_url: str = DATABASE_URL, echo: bool = False) -> Engine:
         autoflush=False,
         expire_on_commit=False  # Keep objects usable after commit
     )
+
+    # Apply lightweight schema upgrades for existing SQLite databases.
+    _ensure_schema_upgrades(_engine)
     
     print(f"✓ Database engine initialized: {database_url}")
     return _engine
+
+
+def _add_column_if_missing(engine: Engine, table_name: str, column_name: str, definition: str) -> None:
+    inspector = inspect(engine)
+    try:
+        columns = {col["name"] for col in inspector.get_columns(table_name)}
+    except Exception:
+        return
+
+    if column_name in columns:
+        return
+
+    with engine.connect() as conn:
+        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"))
+        conn.commit()
+
+
+def _ensure_schema_upgrades(engine: Engine) -> None:
+    """Upgrade existing SQLite schema in-place for backward compatibility."""
+    Base.metadata.create_all(engine)
+
+    # products table additions
+    _add_column_if_missing(engine, "products", "user_id", "INTEGER")
+    _add_column_if_missing(engine, "products", "amazon_url", "TEXT")
+    _add_column_if_missing(engine, "products", "ebay_url", "TEXT")
+    _add_column_if_missing(engine, "products", "walmart_url", "TEXT")
+    _add_column_if_missing(engine, "products", "flipkart_url", "TEXT")
+
+    # thresholds table additions
+    _add_column_if_missing(engine, "thresholds", "user_id", "INTEGER")
+
+    # alerts_sent table additions
+    _add_column_if_missing(engine, "alerts_sent", "user_id", "INTEGER")
+
+    # scraper_runs table additions
+    _add_column_if_missing(engine, "scraper_runs", "user_id", "INTEGER")
 
 
 def get_engine() -> Engine:
@@ -236,7 +275,7 @@ def get_table_row_counts() -> dict:
     Returns:
         Dictionary mapping table names to row counts
     """
-    from database.models import Product, Price, ScraperRun, AlertSent, Threshold
+    from database.models import Product, Price, ScraperRun, AlertSent, Threshold, User, NotificationRecord
     
     counts = {}
     with get_session() as session:
@@ -245,6 +284,8 @@ def get_table_row_counts() -> dict:
         counts["scraper_runs"] = session.query(ScraperRun).count()
         counts["alerts_sent"] = session.query(AlertSent).count()
         counts["thresholds"] = session.query(Threshold).count()
+        counts["users"] = session.query(User).count()
+        counts["notification_records"] = session.query(NotificationRecord).count()
     
     return counts
 

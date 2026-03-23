@@ -77,22 +77,237 @@ sites:
 # Each product should have URLs for each competitor site
 
 products:
+  # ============== ELECTRONICS ==============
+  
+  # Product 1: Premium Headphones
   - id: "prod_001"
-    name: "Example Product - Sony WH-1000XM5"
+    name: "Sony WH-1000XM5 Wireless Headphones"
     category: "Electronics"
     sku: "WH1000XM5"
     urls:
       Amazon: "https://www.amazon.com/dp/B09XS7JWHH"
-      eBay: "https://www.ebay.com/itm/example"
-    # Alert thresholds for this product
     alert_threshold:
-      percentage_drop: 10 # Alert if price drops by 10% or more
-      target_price: 299.99 # Alert if price drops below this amount
+      percentage_drop: 10
+      target_price: 299.99
 
-  # Add more products here
-  # - id: "prod_002"
-  #   name: "Another Product"
-  #   ...
+  # Product 2: High-End Smartphone
+  - id: "prod_002"
+    name: "Apple iPhone 15 Pro Max 256GB"
+    category: "Electronics"
+    sku: "IPHONE15PROMAX"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0CHBD39RV"
+    alert_threshold:
+      percentage_drop: 5
+      target_price: 1099.99
+
+  # Product 3: Premium Laptop
+  - id: "prod_003"
+    name: "Apple MacBook Air M2 13-inch"
+    category: "Electronics"
+    sku: "MACBOOKAIRM2"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0B3C2R8MP"
+    alert_threshold:
+      percentage_drop: 8
+      target_price: 999.99
+
+  # Product 4: Tablet
+  - id: "prod_004"
+    name: "Apple iPad Air 5th Gen 64GB"
+    category: "Electronics"
+    sku: "IPADAIR5"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B09V3HN1KC"
+    alert_threshold:
+      percentage_drop: 10
+      target_price: 499.99
+
+  # Product 5: Smartwatch
+  - id: "prod_005"
+    name: "Apple Watch Series 9 GPS 45mm"
+    category: "Electronics"
+    sku: "APPLEWATCH9"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0CHX9CY7W"
+    alert_threshold:
+      percentage_drop: 12
+      target_price: 379.99
+
+  # Product 6: Wireless Earbuds
+  - id: "prod_006"
+    name: "Apple AirPods Pro 2nd Gen"
+    category: "Electronics"
+    sku: "AIRPODSPRO2"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0BDHWDR12"
+    alert_threshold:
+      percentage_drop: 15
+      target_price: 199.99
+
+  # Product 7: E-Reader
+  - id: "prod_007"
+    name: "Amazon Kindle Paperwhite 11th Gen"
+    category: "Electronics"
+    sku: "KINDLEPW11"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B08KTZ8249"
+    alert_threshold:
+      percentage_drop: 20
+      target_price: 99.99
+
+  # Product 8: Smart Speaker
+  - id: "prod_008"
+    name: "Amazon Echo Dot 5th Gen"
+    category: "Electronics"
+    sku: "ECHODOT5"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B09B8V1LZ3"
+    alert_threshold:
+      percentage_drop: 25
+      target_price: 29.99
+
+  # ============== GAMING ==============
+
+  # Product 9: Gaming Console
+  - id: "prod_009"
+    name: "PlayStation 5 Console"
+    category: "Gaming"
+    sku: "PS5CONSOLE"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0CL5KNB9M"
+    alert_threshold:
+      percentage_drop: 5
+      target_price: 449.99
+
+  # Product 10: Gaming Controller
+  - id: "prod_010"
+    name: "Xbox Wireless Controller"
+    category: "Gaming"
+    sku: "XBOXCONTROLLER"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B08DF248LD"
+    alert_threshold:
+      percentage_drop: 15
+      target_price: 49.99
+
+  # Product 11: Gaming Headset
+  - id: "prod_011"
+    name: "SteelSeries Arctis Nova 7 Wireless"
+    category: "Gaming"
+    sku: "ARCTIS7"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B09ZYNH4ZS"
+    alert_threshold:
+      percentage_drop: 12
+      target_price: 149.99
+
+  # ============== HOME & KITCHEN ==============
+
+  # Product 12: Robot Vacuum
+  - id: "prod_012"
+    name: "iRobot Roomba j7+"
+    category: "Home"
+    sku: "ROOMBAJ7"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B094F4Z9K3"
+    alert_threshold:
+      percentage_drop: 15
+      target_price: 599.99
+
+  # Product 13: Air Fryer
+  - id: "prod_013"
+    name: "Ninja Air Fryer 4-Quart"
+    category: "Kitchen"
+    sku: "NINJAAF"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B07FDJMC9Q"
+    alert_threshold:
+      percentage_drop: 20
+      target_price: 79.99
+
+  # Product 14: Coffee Maker
+  - id: "prod_014"
+    name: "Keurig K-Elite Coffee Maker"
+    category: "Kitchen"
+    sku: "KEURIGELITE"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B078NN17K3"
+    alert_threshold:
+      percentage_drop: 18
+      target_price: 119.99
+
+  # Product 15: Instant Pot
+  - id: "prod_015"
+    name: "Instant Pot Duo 7-in-1 6 Quart"
+    category: "Kitchen"
+    sku: "INSTANTPOT6"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B00FLYWNYQ"
+    alert_threshold:
+      percentage_drop: 22
+      target_price: 69.99
+
+  # ============== SPORTS & FITNESS ==============
+
+  # Product 16: Fitness Tracker
+  - id: "prod_016"
+    name: "Fitbit Charge 6"
+    category: "Fitness"
+    sku: "FITBITCHARGE6"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0CC5WFJCD"
+    alert_threshold:
+      percentage_drop: 15
+      target_price: 129.99
+
+  # Product 17: Yoga Mat
+  - id: "prod_017"
+    name: "Manduka PRO Yoga Mat"
+    category: "Fitness"
+    sku: "MANDUKAPRO"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B000R5XRGI"
+    alert_threshold:
+      percentage_drop: 20
+      target_price: 99.99
+
+  # ============== CAMERAS & PHOTO ==============
+
+  # Product 18: Action Camera
+  - id: "prod_018"
+    name: "GoPro HERO12 Black"
+    category: "Camera"
+    sku: "GOPRO12"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0CCXP5XYV"
+    alert_threshold:
+      percentage_drop: 10
+      target_price: 349.99
+
+  # Product 19: Instant Camera
+  - id: "prod_019"
+    name: "Fujifilm Instax Mini 12"
+    category: "Camera"
+    sku: "INSTAXMINI12"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0BWVDQM6T"
+    alert_threshold:
+      percentage_drop: 18
+      target_price: 59.99
+
+  # ============== BOOKS & MEDIA ==============
+
+  # Product 20: Streaming Device
+  - id: "prod_020"
+    name: "Amazon Fire TV Stick 4K"
+    category: "Electronics"
+    sku: "FIRETV4K"
+    urls:
+      Amazon: "https://www.amazon.com/dp/B0BP9SNVH9"
+    alert_threshold:
+      percentage_drop: 25
+      target_price: 34.99
 
 # ============================================================================
 # SCHEDULING

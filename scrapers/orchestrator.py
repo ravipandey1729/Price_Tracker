@@ -72,7 +72,8 @@ class ScraperOrchestrator:
         self,
         db_session: Session,
         config: Dict[str,Any],
-        max_workers: int = 3
+        max_workers: int = 3,
+        owner_user_id: Optional[int] = None,
     ):
         """
         Initialize orchestrator.
@@ -85,11 +86,15 @@ class ScraperOrchestrator:
         self.db_session = db_session
         self.config = config
         self.max_workers = max_workers
+        self.owner_user_id = owner_user_id
         
         logger.info(f"Initialized orchestrator with max_workers={max_workers}")
     
     
-    def run_all_scrapers(self) -> Dict[str, Any]:
+    def run_all_scrapers(
+        self,
+        allowed_product_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
         """
         Run all configured scrapers.
         
@@ -105,7 +110,7 @@ class ScraperOrchestrator:
         logger.info("Starting scraping run for all sites")
         
         # Build list of scraping tasks
-        tasks = self._build_scrape_tasks()
+        tasks = self._build_scrape_tasks(allowed_product_ids=allowed_product_ids)
         
         if not tasks:
             logger.warning("No scraping tasks found in configuration")
@@ -144,7 +149,11 @@ class ScraperOrchestrator:
         }
     
     
-    def run_site_scraper(self, site_name: str) -> Dict[str, Any]:
+    def run_site_scraper(
+        self,
+        site_name: str,
+        allowed_product_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
         """
         Run scraper for a single site only.
         
@@ -158,7 +167,7 @@ class ScraperOrchestrator:
         logger.info(f"Starting scraping run for: {site_name}")
         
         # Build tasks for this site only
-        all_tasks = self._build_scrape_tasks()
+        all_tasks = self._build_scrape_tasks(allowed_product_ids=allowed_product_ids)
         tasks = [t for t in all_tasks if t.site_name == site_name]
         
         if not tasks:
@@ -189,7 +198,10 @@ class ScraperOrchestrator:
         }
     
     
-    def _build_scrape_tasks(self) -> List[ScrapeTask]:
+    def _build_scrape_tasks(
+        self,
+        allowed_product_ids: Optional[List[str]] = None,
+    ) -> List[ScrapeTask]:
         """
         Build list of scraping tasks from configuration.
         
@@ -197,27 +209,64 @@ class ScraperOrchestrator:
             List of ScrapeTask objects
         """
         tasks = []
-        
+
+        # For user-scoped web flows, scrape products from DB ownership.
+        if self.owner_user_id is not None or allowed_product_ids:
+            query = self.db_session.query(Product)
+
+            if self.owner_user_id is not None:
+                query = query.filter(Product.user_id == self.owner_user_id)
+
+            if allowed_product_ids:
+                query = query.filter(Product.product_id.in_(allowed_product_ids))
+
+            products = query.all()
+            site_urls = [
+                ("Amazon", "amazon_url"),
+                ("eBay", "ebay_url"),
+                ("Walmart", "walmart_url"),
+                ("Flipkart", "flipkart_url"),
+            ]
+
+            for product in products:
+                for site_name, attr_name in site_urls:
+                    url = getattr(product, attr_name, None)
+                    if not url:
+                        continue
+                    if not is_site_supported(site_name):
+                        continue
+                    tasks.append(
+                        ScrapeTask(
+                            product_id=product.product_id,
+                            product_name=product.name,
+                            url=url,
+                            site_name=site_name,
+                        )
+                    )
+
+            return tasks
+
+        # Legacy CLI/config path
         products_config = self.config.get('products', [])
-        
+
         for product in products_config:
             product_id = product.get('id')
             product_name = product.get('name', 'Unknown Product')
             urls = product.get('urls', {})
-            
+
             for site_name, url in urls.items():
                 # Skip if site not supported
                 if not is_site_supported(site_name):
                     logger.warning(f"Site not supported: {site_name} (product: {product_id})")
                     continue
-                
+
                 tasks.append(ScrapeTask(
                     product_id=product_id,
                     product_name=product_name,
                     url=url,
                     site_name=site_name
                 ))
-        
+
         return tasks
     
     
@@ -382,11 +431,12 @@ class ScraperOrchestrator:
                     category="Unknown"
                 )
                 self.db_session.add(product)
+                self.db_session.flush()  # Flush to get the product.id
                 logger.info(f"Created new product: {result.task.product_id}")
             
-            # Create price record
+            # Create price record (using product.id, not product_id string)
             price = Price(
-                product_id=result.task.product_id,
+                product_id=product.id,  # Use the integer ID from Product table
                 price=result.data.price,
                 currency=result.data.currency,
                 raw_price_text=result.data.raw_price_text,
@@ -432,7 +482,7 @@ class ScraperOrchestrator:
             elif successful == 0:
                 status = ScraperStatus.FAILED
             else:
-                status = ScraperStatus.PARTIAL_SUCCESS
+                status = ScraperStatus.PARTIAL
             
             # Collect error messages
             errors = [r.error for r in results if r.error]
@@ -440,14 +490,15 @@ class ScraperOrchestrator:
             
             # Create record
             scraper_run = ScraperRun(
+                user_id=self.owner_user_id,
                 site_name=site_name,
                 status=status,
                 products_attempted=len(results),
                 products_succeeded=successful,
                 products_failed=failed,
                 error_details=error_details if error_details else None,
-                started_at=start_time,
-                completed_at=end_time,
+                start_time=start_time,
+                end_time=end_time,
                 duration_seconds=duration
             )
             

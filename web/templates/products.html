@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Products - Price Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="display-5">
+            <i class="bi bi-box-seam"></i> Products
+        </h1>
+        <p class="lead text-muted">Track any product and compare prices across sites</p>
+    </div>
+    <div class="col-md-4 text-end d-flex align-items-center justify-content-end">
+        <a href="/products/add" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle"></i> Add New Product
+        </a>
+    </div>
+</div>
+
+{% if products %}
+<div class="row g-4">
+    {% for product in products %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{{ product.name }}</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    <strong>Product ID:</strong> {{ product.product_id }}<br>
+                    {% if product.sku %}
+                    <strong>SKU:</strong> {{ product.sku }}<br>
+                    {% endif %}
+                    {% if product.category %}
+                    <strong>Category:</strong> 
+                    <span class="badge bg-secondary">{{ product.category }}</span><br>
+                    {% endif %}
+                    <strong>Created:</strong> {{ product.created_at.strftime('%Y-%m-%d') }}
+                </p>
+                
+                <hr>
+                
+                <!-- Price Stats -->
+                <div class="row text-center g-2">
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <small class="text-muted d-block">Prices</small>
+                            <strong>{{ product.prices|length }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <small class="text-muted d-block">Alerts</small>
+                            <strong>{{ product.thresholds|length }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <small class="text-muted d-block">Sent</small>
+                            <strong>{{ product.alerts|length }}</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if product.prices|length > 0 %}
+                <hr>
+                <!-- Latest Price -->
+                {% set latest = product.prices|sort(attribute='scraped_at', reverse=True)|first %}
+                <div class="alert alert-info mb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="d-block">Latest Price</small>
+                            <strong class="fs-5">{{ latest.currency }} {{ "%.2f"|format(latest.price) }}</strong>
+                        </div>
+                        <div class="text-end">
+                            <small class="d-block text-muted">{{ latest.source_site }}</small>
+                            <small class="text-muted">{{ latest.scraped_at.strftime('%m/%d %H:%M') }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="btn-group w-100" role="group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewHistory('{{ product.product_id }}')">
+                        <i class="bi bi-graph-up"></i> History
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="scrapeProduct('{{ product.product_id }}')">
+                        <i class="bi bi-arrow-clockwise"></i> Scrape
+                    </button>
+                    <a href="/thresholds" class="btn btn-sm btn-outline-warning">
+                        <i class="bi bi-bell"></i> Alert
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-search fs-1 text-muted d-block mb-3"></i>
+                <h3>Start Tracking Prices!</h3>
+                <p class="text-muted mb-4">
+                    Add any product you want to track and we'll compare prices across multiple sites.<br>
+                    Get notified when prices drop!
+                </p>
+                <a href="/products/add" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plus-circle"></i> Add Your First Product
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Price History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Price History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="priceChart"></canvas>
+                <div id="historyDetails" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function viewHistory(productId) {
+    // Fetch price history and show modal with chart
+    fetch(`/api/products/${productId}/history`)
+        .then(response => response.json())
+        .then(data => {
+            showPriceChart(data);
+            const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+            modal.show();
+        })
+        .catch(error => {
+            alert('Error loading price history: ' + error);
+        });
+}
+
+function scrapeProduct(productId) {
+    if (confirm('Scrape this product now?')) {
+        fetch(`/api/scraping/product/${productId}`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert('Scraping started for this product!');
+                setTimeout(() => location.reload(), 3000);
+            })
+            .catch(error => {
+                alert('Error starting scrape: ' + error);
+            });
+    }
+}
+
+function scrapeNow() {
+    if (confirm('Start scraping all products now?')) {
+        fetch('/api/scraping/now', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                alert('Scraping started! Refreshing page...');
+                setTimeout(() => location.reload(), 2000);
+            })
+            .catch(error => {
+                alert('Error starting scrape: ' + error);
+            });
+    }
+}
+
+function showPriceChart(data) {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (window.priceChartInstance) {
+        window.priceChartInstance.destroy();
+    }
+    
+    window.priceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [{
+                label: 'Price',
+                data: data.prices,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: data.product_name + ' - Price History'
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) {
+                            return data.currency + ' ' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Show statistics
+    const details = document.getElementById('historyDetails');
+    details.innerHTML = `
+        <div class="row text-center g-3">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="text-muted">Current</h6>
+                        <h4>${data.currency} ${data.current.toFixed(2)}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="text-muted">Average</h6>
+                        <h4>${data.currency} ${data.avg.toFixed(2)}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="text-muted">Lowest</h6>
+                        <h4 class="text-success">${data.currency} ${data.min.toFixed(2)}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="text-muted">Highest</h6>
+                        <h4 class="text-danger">${data.currency} ${data.max.toFixed(2)}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+</script>
+{% endblock %}
